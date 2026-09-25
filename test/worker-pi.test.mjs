@@ -40,7 +40,8 @@ const binding = {
   task_id: "task-1",
   execution_id: "exec-1",
   conversation_id: "account/consulting#42",
-  workspace: "/var/lib/agent-worker/workspaces/task-1"
+  workspace: "/var/lib/agent-worker/workspaces/task-1",
+  resource_limits: { max_runtime_ms: 60000, max_memory_mb: 1024 }
 };
 
 test("Pi launch spec uses argv boundaries and binds the remote conversation", () => {
@@ -50,6 +51,7 @@ test("Pi launch spec uses argv boundaries and binds the remote conversation", ()
   assert.deepEqual(spec.args.slice(-2), ["--chat-conversation", "account/consulting#42"]);
   assert.ok(spec.args.includes("account_consulting_42"));
   assert.ok(!spec.args.some((value) => value.includes(";")));
+  assert.deepEqual(spec.resource_limits, { max_runtime_ms: 60000, max_memory_mb: 1024 });
 });
 
 test("Pi launch spec rejects relative runtime paths", () => {

@@ -98,7 +98,7 @@ test("coordinator runs task -> generic room -> dispatch -> delivery -> accept wi
     acceptance: ["Return a verified delivery"]
   });
   assert.equal(projectTask(ledger.list(), "task-demo")?.status, "dispatched");
-  const topicEvent = ledger.list("task-demo").find((event) => event.type === "topic.created");
+  const topicEvent = ledger.list("task-demo").find((event) => event.type === "room.created");
   assert.equal(topicEvent.data.room_id, "room-101");
 
   const observed = coordinator.observeWorkerReply(receipt, {
@@ -158,7 +158,7 @@ test("coordinator keeps task/execution/channel/room/sender identity checks with 
       sender_id: "worker-uid",
       text: reply()
     }),
-    /topic_id mismatch/
+    /room_id mismatch/
   );
   assert.throws(
     () => coordinator.observeWorkerReply(receipt, {

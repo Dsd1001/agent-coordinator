@@ -1,9 +1,9 @@
 {
   "name": "agent-coordinator",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Manager/worker agent coordination with task-scoped execution, Telegram topics, and isolated Pi workers",
+  "description": "Transport-neutral manager/worker agent coordination with durable state, isolated workers, recovery, quotas, and extensions",
   "workspaces": [
     "packages/*"
   ],

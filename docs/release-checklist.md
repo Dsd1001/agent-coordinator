@@ -19,3 +19,15 @@
 ## Never publish
 
 Production `.jsonl` ingress/session logs, task stores, Telegram updates, real bot/provider secrets, manager memories, customer/user input files, or generated customer deliverables.
+
+## 0.1.0 tagged release
+
+- [x] Stable protocol/API versions defined.
+- [x] Public core uses transport-neutral `room_id`; Telegram `topic_id` remains adapter-local.
+- [x] Resource quotas/concurrency tests pass.
+- [x] Recovery semantic audit tests pass.
+- [x] Extension API atomic-registration tests pass.
+- [x] Workspace package versions set to `0.1.0`.
+- [ ] Clean Node 22 CI succeeds on release commit.
+- [ ] Tag `v0.1.0` from green `main`.
+- [ ] Create GitHub Release `0.1.0`.

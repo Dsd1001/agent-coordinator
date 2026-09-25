@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dsd1001/agent-coordinator/schemas/0.1/resource-quota-policy.schema.json",
+  "title": "ResourceQuotaPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "max_active_executions",
+    "max_active_per_worker",
+    "max_queued_executions",
+    "max_execution_ms",
+    "max_memory_mb",
+    "max_artifact_count",
+    "max_total_artifact_bytes"
+  ],
+  "properties": {
+    "max_active_executions": {"type": "integer", "minimum": 1},
+    "max_active_per_worker": {"type": "integer", "minimum": 1},
+    "max_queued_executions": {"type": "integer", "minimum": 0},
+    "max_execution_ms": {"type": "integer", "minimum": 1},
+    "max_memory_mb": {"type": "integer", "minimum": 1},
+    "max_artifact_count": {"type": "integer", "minimum": 0},
+    "max_total_artifact_bytes": {"type": "integer", "minimum": 0}
+  }
+}

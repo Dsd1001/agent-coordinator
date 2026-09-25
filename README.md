@@ -4,50 +4,50 @@
 
 An open-source manager/worker agent coordination framework.
 
-The reference architecture keeps a privileged manager agent in control of task planning and review while delegating execution to short-lived, isolated worker agents. Telegram forum topics are used as human-visible task rooms in the first adapter, but the coordination protocol is transport-independent.
+**Current release: 0.1.0** · Protocol: `0.1.x` · Extension API: `0.1.x` · Node.js >= 22.13
+
+The architecture keeps a manager agent in control of task planning and review while delegating execution to short-lived isolated workers. The coordination core is transport/framework neutral; Telegram, Hermes, Pi, and Gondolin are reference adapters/boundaries.
 
 ## Core model
 
-- **Manager**: creates tasks, defines acceptance criteria, reviews deliveries, and decides accept/rework/resume/cancel.
+- **Manager**: creates tasks, acceptance criteria, and review decisions.
 - **Task**: stable identity for one unit of work.
-- **Execution**: one attempt of a task. Rework/resume creates a new execution identity.
-- **Room**: transport-neutral human-visible collaboration namespace. In the Telegram adapter, one task room maps to one forum topic.
-- **Worker**: isolated execution runtime bound to a task topic and current execution.
-- **Delivery**: structured worker handoff containing summary, artifacts, checks, and limitations.
+- **Execution**: one attempt; rework/resume creates a new execution ID.
+- **Room**: transport-neutral collaboration/routing namespace.
+- **Worker**: isolated execution runtime bound to task + current execution.
+- **Delivery**: structured handoff containing summary, artifacts, checks, and limitations.
 
-## Reference deployment
+## 0.1.0 capabilities
 
-`Hermes manager adapter -> coordinator -> transport room -> Pi worker -> sandbox backend`
+- stable versioned protocol with canonical task/execution/channel/room/worker identity
+- SQLite WAL durable event ledger
+- SHA-256 artifact verification with path/symlink defenses and artifact quotas
+- global/per-worker concurrency admission with a bounded queue
+- runtime/memory limits propagated to worker process managers
+- framework-neutral manager review with explicit review evidence
+- evidence-driven reconciliation plus offline recovery semantic audit
+- supervisor health/backoff model
+- versioned atomic extension API and registry
+- fail-closed sandbox backend and Gondolin reference boundary
+- Telegram forum transport/codec reference adapter
+- Pi worker reference adapter
+- clean injected Hermes manager adapter
 
-Reference adapters currently map that to `Hermes -> Telegram forum topic -> Pi -> Gondolin`.
+Reference deployment mapping:
 
-The public project will not contain production credentials, chat IDs, historical sessions, user data, or private Consultant source code.
+`Hermes manager -> coordinator -> Telegram room/topic -> Pi worker -> Gondolin sandbox`
 
-## Status
+Production credentials, chat IDs, historical sessions, user data, manager memories, and private Consultant source are intentionally excluded.
 
-Public early-stage project with the v0.1, v0.2, and v0.3 roadmap milestones complete. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
+## Development
 
-## Current capabilities
+```text
+npm ci
+npm test
+npm run release-check
+```
 
-The repository contains executable TypeScript for:
-
-- task lifecycle transitions with in-memory and SQLite WAL event ledgers
-- task/execution/channel/room/worker delivery identity verification
-- SHA-256 verification for workspace-scoped delivery artifacts
-- framework-neutral manager preparation/review contracts with explicit review evidence
-- clean Hermes manager adapter through injected framework operations
-- replaceable fail-closed sandbox backend with a clean Gondolin reference boundary
-- transport-neutral coordinator ports for rooms/messages and work-order codecs
-- Telegram forum topic creation, sending, and closing as a reference adapter
-- coordinator/administrator sender allowlists based on immutable user IDs
-- the reference `/task` dispatch and `deliver|blocked|failed` reply protocol
-- a minimal coordinator that runs task -> topic -> dispatch -> delivery -> accept
-- Pi remote-worker fail-closed policy helpers
-- a hardened systemd worker-supervisor example
-- transport-neutral supervisor health snapshots with bounded retry/backoff metrics
-- idempotent recovery/reconciliation for uncertain external side effects
-
-Run `npm test` and `npm run release-check` before any public push.
+See `docs/protocol.md`, `docs/resource-policy.md`, `docs/recovery.md`, `docs/extensions.md`, `docs/architecture.md`, and `SECURITY.md`.
 
 ## License
 

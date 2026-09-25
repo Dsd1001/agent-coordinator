@@ -1,42 +1,54 @@
-# Coordination Protocol
+# Coordination Protocol 0.1
+
+`PROTOCOL_VERSION` is **0.1.0**. The 0.1 line is the first tagged public protocol for Agent Coordinator.
+
+## Compatibility
+
+Before 1.0, protocol compatibility requires the same major **and minor** version. A 0.1.x peer is compatible with another 0.1.x peer; 0.2.x is not assumed compatible. Patch releases must preserve the 0.1 wire/state contract.
+
+The public protocol is transport-neutral. `topic_id` is not a protocol field. Telegram maps its `message_thread_id`/topic identity to the protocol's `room_id` inside the Telegram adapter.
 
 ## Identity
 
-A task has a stable `task_id`. Each attempt has a unique `execution_id`. A transport-neutral `room_id` namespace is bound to the task. A worker process is bound to the current execution. Telegram maps that room to a forum `topic_id`.
+A task has a stable `task_id`. Each attempt has a unique `execution_id`. A transport namespace is identified by `channel_id` + `room_id`. A worker process and every delivery are bound to the current execution.
 
-## States
+A delivery is rejected unless all configured identity checks pass:
 
-Suggested task states:
+- expected immutable worker sender identity
+- expected transport channel
+- expected room
+- matching task ID
+- matching current execution ID
+- task state allows delivery
+- delivery/message ID has not already been consumed
+
+## Durable events
+
+The 0.1 event vocabulary is:
+
+`task.prepared`, `room.created`, `input.attached`, `dispatch.requested`, `dispatch.confirmed`, `worker.started`, `worker.blocked`, `worker.failed`, `delivery.observed`, `review.rework`, `review.resume`, `review.accepted`, `task.cancelled`, `room.closed`, `reconciliation.recorded`.
+
+Events carry a monotonically increasing sequence number, `task_id`, `execution_id`, and timestamp. `room.created` persists `channel_id` and `room_id`. Reconciliation audit records are state-neutral and must have stable decision keys when used for deduplication.
+
+## Lifecycle
+
+Normal flow:
 
 `prepared -> dispatching -> dispatched -> delivering -> delivered -> accepted`
 
 Exceptional/review states include `blocked`, `failed`, `reworking`, and `cancelled`.
 
-## Delivery verification
+Rework/resume preserves `task_id` and room, creates a distinct `execution_id`, and records the previous execution. Late deliveries from older executions remain auditable but cannot complete the current execution.
 
-A manager must reject a delivery unless all configured identity checks pass:
-
-- expected worker sender identity
-- expected transport channel/chat
-- expected room/thread
-- matching task ID
-- matching current execution ID
-- task state allows delivery
-- message/delivery has not already been consumed
-
-## Rework and resume
-
-Rework/resume creates a new `execution_id`. Stale deliveries from older executions remain auditable but cannot complete the current execution.
+Manager review is accepted only for the current execution while its durable projection is `delivered`. A review returns explicit evidence (`review_id`, timestamp, source). Rework/resume requires non-empty requirements plus a new execution ID. Accept/cancel terminate the task and close its room.
 
 ## Transport and codec boundary
 
-The coordinator does not define how rooms or worker messages are represented externally. `CoordinationTransport` owns room lifecycle/message delivery and `WorkOrderCodec` owns work-order/reply representation. Identity checks happen after parsing and cannot be weakened by a codec.
+`CoordinationTransport` owns room lifecycle and message delivery. `WorkOrderCodec` owns the external work-order/reply representation. The coordinator performs identity checks after parsing, so a codec cannot weaken identity rules.
 
-The Telegram reference adapter maps `room_id` to its forum `topic_id`. The persisted `topic_id` compatibility field is still populated during the pre-1.0 migration.
+### Telegram reference wire format
 
-## Telegram reference wire format
-
-The Telegram adapter may render a work order as a human-readable command while preserving structured identity fields:
+Telegram maps one protocol room to one forum topic. Its work order may be rendered as:
 
 ```text
 /task@<worker-bot>
@@ -48,21 +60,6 @@ title: <title>
 
 acceptance criteria:
 - <criterion>
-
-Verified input files:
-- <workspace path> (sha256: <digest>)
 ```
 
-A worker reply is parsed permissively because a worker LLM may put the configured coordinator address inside surrounding prose. Both `/deliver@<coordinator> <task>` and `@<coordinator> deliver <task>` forms are accepted anywhere in the message, as are `blocked` and `failed`. Placeholder examples such as `<taskId>` are rejected. The execution ID remains mandatory.
-
-This tolerant parsing is safe only together with the hard identity binding: sender authorization uses immutable platform user IDs, and the coordinator separately verifies channel, topic, task ID, current execution ID, and delivery/message ID. **Formatting is tolerant; identity is strict.**
-
-## Rework and resume in a room
-
-Rework/resume keeps the stable task and transport room but creates a new execution ID. In Telegram, this means retaining the same forum topic. The old execution remains auditable. Any late delivery carrying the previous execution ID is rejected for the current attempt. The same transport message/delivery ID must not be consumed twice.
-
-## Manager review protocol
-
-A manager review is bound to the current `task_id` and `execution_id`. The caller supplies a verification record only after delivery identity and artifact verification have passed. The manager returns explicit review evidence (`review_id`, timestamp, source) so accept/rework/resume/cancel decisions can be audited in the event ledger.
-
-For `rework` and `resume`, the reviewed execution remains immutable and the decision supplies a distinct `next_execution_id` plus non-empty requirements. The coordinator reuses the stable task/room and dispatches the new execution. `accept` and `cancel` terminate the task and close its room; uncertain room-close outcomes remain recoverable through reconciliation. The coordinator refuses to apply any manager review unless its current durable projection is the same execution in `delivered` state.
+The Telegram reply parser tolerates surrounding prose, but task/execution/channel/room/sender/delivery identity remains strict. Formatting is tolerant; identity is strict.

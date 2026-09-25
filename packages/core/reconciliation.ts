@@ -1,3 +1,4 @@
+import { assertRecoverySemantics } from "./recovery-audit.js";
 import {
   type EventLedger,
   type CoordinationEvent,
@@ -15,7 +16,7 @@ export interface ReconciliationTarget {
   execution_id: string;
   status: TaskStatus;
   channel_id?: string;
-  topic_id?: string;
+  room_id?: string;
 }
 
 export interface DispatchObservation {
@@ -30,7 +31,7 @@ export interface WorkerObservation {
   worker_id?: string;
 }
 
-export interface TopicObservation {
+export interface RoomObservation {
   state: "closed" | "open" | "unknown";
   execution_id: string;
 }
@@ -38,7 +39,7 @@ export interface TopicObservation {
 export interface ReconciliationTransportObserver {
   observeDispatch?(target: ReconciliationTarget): Promise<DispatchObservation | undefined>;
   observeDelivery?(target: ReconciliationTarget): Promise<ObservedDelivery | undefined>;
-  observeTopic?(target: ReconciliationTarget): Promise<TopicObservation | undefined>;
+  observeRoom?(target: ReconciliationTarget): Promise<RoomObservation | undefined>;
 }
 
 export interface ReconciliationWorkerObserver {
@@ -65,13 +66,13 @@ export interface ReconciliationReport {
   appended_event_seqs: number[];
 }
 
-type ReconciliationKind = "dispatch" | "worker" | "delivery" | "review" | "topic";
+type ReconciliationKind = "dispatch" | "worker" | "delivery" | "review" | "room";
 
-function latestTopic(events: readonly CoordinationEvent[]): { channel_id?: string; topic_id?: string } {
-  const event = [...events].reverse().find((candidate) => candidate.type === "topic.created");
+function latestRoom(events: readonly CoordinationEvent[]): { channel_id?: string; room_id?: string } {
+  const event = [...events].reverse().find((candidate) => candidate.type === "room.created");
   return {
     channel_id: typeof event?.data?.channel_id === "string" ? event.data.channel_id : undefined,
-    topic_id: typeof event?.data?.topic_id === "string" ? event.data.topic_id : undefined
+    room_id: typeof event?.data?.room_id === "string" ? event.data.room_id : undefined
   };
 }
 
@@ -146,22 +147,22 @@ function appendStateEvent(
 function currentTarget(events: readonly CoordinationEvent[], taskId: string): ReconciliationTarget {
   const projection = projectTask(events, taskId);
   if (!projection) throw new Error(`task ${taskId} not found`);
-  const topic = latestTopic(events);
+  const room = latestRoom(events);
   return {
     task_id: taskId,
     execution_id: projection.execution_id,
     status: projection.status,
-    ...topic
+    ...room
   };
 }
 
 function deliveryBinding(target: ReconciliationTarget, workerSenderId?: string): ExpectedDeliveryBinding | undefined {
-  if (!workerSenderId || !target.channel_id || !target.topic_id) return undefined;
+  if (!workerSenderId || !target.channel_id || !target.room_id) return undefined;
   return {
     task_id: target.task_id,
     execution_id: target.execution_id,
     channel_id: target.channel_id,
-    topic_id: target.topic_id,
+    room_id: target.room_id,
     worker_sender_id: workerSenderId
   };
 }
@@ -173,6 +174,7 @@ export async function reconcileTask(
   options: ReconciliationOptions = {}
 ): Promise<ReconciliationReport> {
   const events = ledger.list(taskId);
+  assertRecoverySemantics(events, taskId);
   const initial = currentTarget(events, taskId);
   const report: ReconciliationReport = {
     task_id: taskId,
@@ -332,7 +334,7 @@ export async function reconcileTask(
           "delivery",
           `delivery:${target.execution_id}:binding_unavailable`,
           "binding_unavailable",
-          "Delivery evidence cannot be reconciled without channel/topic and expected worker identity."
+          "Delivery evidence cannot be reconciled without channel/room and expected worker identity."
         );
       } else {
         const errors = verifyDeliveryIdentity(binding, observation);
@@ -346,7 +348,7 @@ export async function reconcileTask(
             "delivery",
             `delivery:${target.execution_id}:rejected:${errors.join("+")}`,
             "identity_rejected",
-            "Delivery evidence failed current task/execution/channel/topic/worker identity checks."
+            "Delivery evidence failed current task/execution/channel/room/worker identity checks."
           );
         } else {
           const type =
@@ -401,70 +403,71 @@ export async function reconcileTask(
 
   target = currentTarget(events, taskId);
 
-  // Acceptance may have succeeded before a crash while topic closure was still
-  // uncertain. Only an observed closed topic is committed; open/unknown states
+  // Acceptance may have succeeded before a crash while room closure was still
+  // uncertain. Only an observed closed room is committed; open/unknown states
   // never call close again from reconciliation.
   if (
     hasCurrentEvent(events, target.execution_id, ["review.accepted", "task.cancelled"]) &&
-    !hasCurrentEvent(events, target.execution_id, ["topic.closed"])
+    !hasCurrentEvent(events, target.execution_id, ["room.closed"])
   ) {
-    const observation = await observers.transport?.observeTopic?.(target);
+    const observation = await observers.transport?.observeRoom?.(target);
     if (!observation) {
       appendManualDecision(
         ledger,
         events,
         target,
         report,
-        "topic",
-        `topic:${target.execution_id}:unobserved`,
+        "room",
+        `room:${target.execution_id}:unobserved`,
         "unobserved",
-        "Terminal task has no topic-close evidence; do not repeat the close side effect automatically."
+        "Terminal task has no room-close evidence; do not repeat the close side effect automatically."
       );
     } else if (observation.execution_id !== target.execution_id) {
-      report.observations.push(`Topic evidence belongs to stale execution ${observation.execution_id}.`);
+      report.observations.push(`Room evidence belongs to stale execution ${observation.execution_id}.`);
       appendManualDecision(
         ledger,
         events,
         target,
         report,
-        "topic",
-        `topic:${target.execution_id}:stale:${observation.execution_id}`,
+        "room",
+        `room:${target.execution_id}:stale:${observation.execution_id}`,
         "stale_execution",
-        "Topic-close evidence is stale; current close outcome remains unresolved."
+        "Room-close evidence is stale; current close outcome remains unresolved."
       );
     } else if (observation.state === "closed") {
-      report.observations.push("Transport confirms the task topic is closed.");
+      report.observations.push("Transport confirms the task room is closed.");
       appendStateEvent(
         ledger,
         events,
         report,
         {
-          type: "topic.closed",
+          type: "room.closed",
           task_id: target.task_id,
           execution_id: target.execution_id,
           data: {
-            topic_id: target.topic_id ?? "",
+            room_id: target.room_id ?? "",
             reconciled: true,
-            evidence: "transport_topic_state"
+            evidence: "transport_room_state"
           }
         },
-        "Recorded confirmed topic closure."
+        "Recorded confirmed room closure."
       );
     } else {
-      report.observations.push(`Transport reports topic state ${observation.state}.`);
+      report.observations.push(`Transport reports room state ${observation.state}.`);
       appendManualDecision(
         ledger,
         events,
         target,
         report,
-        "topic",
-        `topic:${target.execution_id}:${observation.state}`,
+        "room",
+        `room:${target.execution_id}:${observation.state}`,
         observation.state,
-        "Topic is not confirmed closed; reconciliation will not repeat the close side effect automatically."
+        "Room is not confirmed closed; reconciliation will not repeat the close side effect automatically."
       );
     }
   }
 
+  assertRecoverySemantics(events, taskId);
   const finalProjection = projectTask(events, taskId);
   if (!finalProjection) throw new Error(`task ${taskId} disappeared during reconciliation`);
   report.status_after = finalProjection.status;

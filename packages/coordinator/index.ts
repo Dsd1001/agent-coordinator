@@ -111,10 +111,10 @@ export class TaskCoordinator {
       throw new Error("transport returned an invalid room identity");
     }
     this.#ledger.append({
-      type: "topic.created",
+      type: "room.created",
       task_id: task.task_id,
       execution_id: task.execution_id,
-      data: { channel_id: room.channel_id, room_id: room.room_id, topic_id: room.room_id }
+      data: { channel_id: room.channel_id, room_id: room.room_id }
     });
     this.#ledger.append({ type: "dispatch.requested", task_id: task.task_id, execution_id: task.execution_id });
     const sent = await this.#transport.send(room, workOrder);
@@ -125,14 +125,14 @@ export class TaskCoordinator {
       data: { message_id: sent.message_id }
     });
     return {
-      task: { ...task, room_id: room.room_id, topic_id: room.room_id },
+      task: { ...task, room_id: room.room_id },
       room,
       dispatch_message_id: sent.message_id,
       binding: {
         task_id: task.task_id,
         execution_id: task.execution_id,
         channel_id: room.channel_id,
-        topic_id: room.room_id,
+        room_id: room.room_id,
         worker_sender_id: this.#options.worker_sender_id
       }
     };
@@ -168,7 +168,7 @@ export class TaskCoordinator {
     assertDeliveryIdentity(receipt.binding, {
       payload: delivery,
       channel_id: message.channel_id,
-      topic_id: message.room_id ?? "",
+      room_id: message.room_id ?? "",
       sender_id: message.sender_id,
       delivery_id: message.message_id
     });
@@ -243,10 +243,10 @@ export class TaskCoordinator {
     });
     await this.#transport.closeRoom(receipt.room);
     this.#ledger.append({
-      type: "topic.closed",
+      type: "room.closed",
       task_id: receipt.task.task_id,
       execution_id: receipt.task.execution_id,
-      data: { room_id: receipt.room.room_id, topic_id: receipt.room.room_id }
+      data: { room_id: receipt.room.room_id }
     });
   }
 
@@ -266,10 +266,10 @@ export class TaskCoordinator {
     });
     await this.#transport.closeRoom(receipt.room);
     this.#ledger.append({
-      type: "topic.closed",
+      type: "room.closed",
       task_id: receipt.task.task_id,
       execution_id: receipt.task.execution_id,
-      data: { room_id: receipt.room.room_id, topic_id: receipt.room.room_id }
+      data: { room_id: receipt.room.room_id }
     });
   }
 

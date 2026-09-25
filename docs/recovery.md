@@ -2,38 +2,39 @@
 
 Recovery is evidence-driven. The reconciler never repeats an external side effect merely because the local ledger is incomplete.
 
-## Principle
+## Recovery invariant audit
 
-External sends, worker starts, and topic closes can have an **unknown outcome** when a process crashes or a network request loses its response. Repeating those operations blindly can duplicate work or messages. `reconcileTask()` therefore consumes **read-only observations** and only updates the local ledger when external evidence positively confirms an outcome.
+`auditRecoverySemantics()` performs an offline audit of durable event history. Hard errors include invalid/duplicate/non-monotonic sequences, unknown event types, dispatch confirmation without intent, duplicate worker starts or terminal results, duplicate delivery IDs, invalid rework execution rotation, acceptance without delivery, duplicate reconciliation decision keys, and room closure before task termination.
+
+`reconcileTask()` calls `assertRecoverySemantics()` **before** observer access and again after appending reconciled events. Corrupt history therefore fails closed before transport/worker observers are called.
+
+Warnings report suspicious but not necessarily invalid histories, such as a worker result with no recorded room.
+
+## Ambiguous external side effects
+
+External sends, worker starts, and room closes can have an unknown outcome when a process crashes or a network response is lost. Repeating them blindly can duplicate work or messages. Reconciliation consumes read-only observations and only appends local state when evidence positively confirms the outcome.
 
 The observer interfaces intentionally expose no `send`, `start`, or `close` method.
 
-## Recoverable situations
-
-| Local durable state | Observation | Reconciliation result |
+| Durable state | Observation | Reconciliation result |
 | --- | --- | --- |
 | `dispatch.requested`, no receipt | confirmed current-execution message | append `dispatch.confirmed` |
 | `dispatch.requested`, no receipt | unknown/absent/stale | audit + manual action; never resend |
-| confirmed dispatch, no worker record | current worker is running | append `worker.started` |
+| confirmed dispatch, no worker record | current worker running | append `worker.started` |
 | confirmed dispatch, no worker record | unknown/absent/stale | audit + manual action; never start another worker |
-| no terminal delivery | delivery matching task/execution/channel/topic/worker | append delivery/blocked/failed event |
-| no terminal delivery | stale or wrongly routed delivery | reject + audit; current execution unchanged |
+| no terminal result | delivery matching task/execution/channel/room/worker | append delivery/blocked/failed event |
+| no terminal result | stale/wrongly routed delivery | reject + audit; current execution unchanged |
 | delivered, no review | any | surface manager-review action; never auto-accept/rework |
-| accepted, no `topic.closed` | current topic observed closed | append `topic.closed` |
-| accepted, no `topic.closed` | open/unknown/stale | audit + manual action; never repeat close |
+| accepted/cancelled, no `room.closed` | room observed closed | append `room.closed` |
+| accepted/cancelled, no `room.closed` | open/unknown/stale | audit + manual action; never repeat close |
 
 ## Idempotency
 
-Confirmed state events make their own reconciliation path ineligible on the next run. Unresolved decisions are recorded as `reconciliation.recorded` with stable `decision_key` values, so repeated reconciliation does not append duplicate audit events.
-
-This makes `reconcileTask()` suitable for repeated operator use after process restarts.
+Confirmed state events make the corresponding recovery path ineligible on the next run. Unresolved decisions use stable `reconciliation.recorded` decision keys, so repeated reconciliation does not append duplicate audit decisions.
 
 ## Library entry point
 
 ```ts
-import { SqliteEventLedger, reconcileTask } from "@agent-coordinator/core";
-
-const ledger = new SqliteEventLedger("./state/coordinator.db");
 const report = await reconcileTask(
   ledger,
   "task-123",
@@ -41,7 +42,7 @@ const report = await reconcileTask(
     transport: {
       observeDispatch: async (target) => lookupDispatchReceipt(target),
       observeDelivery: async (target) => lookupWorkerDelivery(target),
-      observeTopic: async (target) => lookupTopicState(target)
+      observeRoom: async (target) => lookupRoomState(target)
     },
     worker: {
       observeWorker: async (target) => lookupWorkerRuntime(target)
@@ -49,15 +50,6 @@ const report = await reconcileTask(
   },
   { worker_sender_id: "expected-worker-user-id" }
 );
-
-console.log(JSON.stringify(report, null, 2));
-ledger.close();
 ```
 
-The report separates `observations`, local `changes`, and `manual_actions`, and includes the sequence numbers of audit/state events appended during that run.
-
-## Adapter requirements
-
-Observers should return immutable platform/runtime evidence where possible: transport message IDs, execution IDs, worker process IDs, and topic state. Delivery observations are still subject to the normal task/execution/channel/topic/worker identity binding before they may change task state.
-
-Observers are expected to be read-only. Mutating external systems from an observation method defeats the recovery safety model.
+The report separates observations, local changes, and manual actions, and includes appended event sequence numbers. Observer evidence should use immutable message/runtime identities where possible.

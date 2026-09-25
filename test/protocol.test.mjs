@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  PROTOCOL_VERSION,
+  assertProtocolCompatible,
   assertTaskTransition,
   canTransitionTask,
+  isProtocolCompatible,
+  parseProtocolVersion,
   verifyDeliveryIdentity
 } from "../dist/packages/protocol/src/index.js";
 
@@ -20,12 +24,12 @@ test("rework requires a new dispatch path", () => {
   assert.throws(() => assertTaskTransition("reworking", "accepted"), /invalid task transition/);
 });
 
-test("delivery identity checks task, execution, channel, topic and sender", () => {
+test("delivery identity checks task, execution, channel, room and sender", () => {
   const expected = {
     task_id: "task-example",
     execution_id: "exec-current",
     channel_id: "chat-example",
-    topic_id: "topic-42",
+    room_id: "topic-42",
     worker_sender_id: "worker-bot"
   };
   const payload = {
@@ -40,7 +44,7 @@ test("delivery identity checks task, execution, channel, topic and sender", () =
   const observed = {
     payload,
     channel_id: "chat-example",
-    topic_id: "topic-42",
+    room_id: "topic-42",
     sender_id: "worker-bot",
     delivery_id: "message-9"
   };
@@ -54,4 +58,16 @@ test("delivery identity checks task, execution, channel, topic and sender", () =
     }),
     ["execution_id mismatch", "worker sender mismatch"]
   );
+});
+
+
+test("protocol 0.1 patch releases are compatible but other minor lines are not", () => {
+  assert.equal(PROTOCOL_VERSION, "0.1.0");
+  assert.deepEqual(parseProtocolVersion("0.1.7"), { major: 0, minor: 1, patch: 7 });
+  assert.equal(isProtocolCompatible("0.1.9"), true);
+  assert.equal(isProtocolCompatible("0.2.0"), false);
+  assert.equal(isProtocolCompatible("1.0.0"), false);
+  assert.doesNotThrow(() => assertProtocolCompatible("0.1.99"));
+  assert.throws(() => assertProtocolCompatible("0.2.0"), /incompatible protocol version/);
+  assert.throws(() => parseProtocolVersion("v0.1"), /invalid protocol version/);
 });

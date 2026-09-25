@@ -25,7 +25,7 @@ function binding() {
     task_id: "task-1",
     execution_id: "exec-1",
     channel_id: "chat-1",
-    topic_id: "42",
+    room_id: "42",
     worker_sender_id: "worker-uid"
   };
 }
@@ -43,7 +43,7 @@ function observed(artifacts, overrides = {}) {
       ...(overrides.payload ?? {})
     },
     channel_id: "chat-1",
-    topic_id: "42",
+    room_id: "42",
     sender_id: "worker-uid",
     delivery_id: "delivery-1",
     ...Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "payload"))
@@ -170,4 +170,38 @@ test("delivery acceptance requires delivered status, declared checks, and artifa
     ]), root),
     /delivery verification failed: artifact\[0\]\.sha256/
   );
+});
+
+test("artifact quotas reject excessive count before file IO", async () => {
+  const root = await workspace();
+  const report = await verifyArtifactRefs(
+    root,
+    [
+      { path: "missing-1.txt", sha256: "a".repeat(64) },
+      { path: "missing-2.txt", sha256: "b".repeat(64) }
+    ],
+    { max_artifact_count: 1 }
+  );
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.find((check) => check.name === "artifact.quota.count")?.result, "failed");
+  assert.equal(report.artifacts.every((artifact) => artifact.result === "not_run"), true);
+});
+
+test("artifact quotas enforce total verified bytes and stop later verification", async () => {
+  const root = await workspace();
+  await writeFile(join(root, "a.txt"), "123456");
+  await writeFile(join(root, "b.txt"), "abcdef");
+  const report = await verifyArtifactRefs(
+    root,
+    [
+      { path: "a.txt", sha256: sha256("123456") },
+      { path: "b.txt", sha256: sha256("abcdef") }
+    ],
+    { max_total_artifact_bytes: 5 }
+  );
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.find((check) => check.name === "artifact.quota.bytes")?.result, "failed");
+  assert.equal(report.artifacts[0].result, "failed");
+  assert.equal(report.artifacts[0].detail, "artifact exceeds remaining byte quota");
+  assert.equal(report.artifacts[1].result, "not_run");
 });

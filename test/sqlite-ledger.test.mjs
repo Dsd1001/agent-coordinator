@@ -32,10 +32,10 @@ test("SQLite ledger uses WAL and survives close/reopen", async () => {
     1
   );
   first.append({
-    type: "topic.created",
+    type: "room.created",
     task_id: "t1",
     execution_id: "e1",
-    data: { topic_id: "42" }
+    data: { room_id: "42" }
   });
   first.close();
 
@@ -51,7 +51,7 @@ test("SQLite ledger uses WAL and survives close/reopen", async () => {
     task_id: "t1",
     execution_id: "e1",
     status: "prepared",
-    topic_id: "42",
+    room_id: "42",
     last_event_seq: 2
   });
   reopened.close();
