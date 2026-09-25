@@ -25,6 +25,7 @@ The legacy `/srv/consultant` coordination package is marked `private: true` and 
 
 - [x] Repository release/secret scan passed.
 - [x] Public implementation was limited to source with clear provenance or clean generic implementation.
+- [x] Hermes manager integration is a clean injected adapter and does not copy the legacy private Consultant coordination package.
 - [x] Top-level license selected: Apache-2.0.
 - [x] Third-party notices/attribution added.
 - [x] Production identifiers were replaced with example placeholders.

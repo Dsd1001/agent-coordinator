@@ -20,6 +20,8 @@ The manager and worker belong to different trust zones.
 - Supervisor health snapshots contain counters/timestamps and stable identifiers only; raw errors, transport payloads, prompts, credentials, and provider configuration are excluded.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
 - Recovery observers are read-only by contract; reconciliation may record positively observed outcomes but cannot send messages, start workers, or close topics.
+- Manager review accepts only a delivery explicitly marked identity/artifact verified, and the Hermes adapter rejects task/execution mismatches.
+- Hermes client exceptions are converted to structured adapter errors without copying upstream exception text or private context.
 
 ## Reporting
 

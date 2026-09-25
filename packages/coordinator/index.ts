@@ -6,6 +6,8 @@ import {
   type CoordinationTransport,
   type DeliveryEnvelope,
   type ExpectedDeliveryBinding,
+  type ManagerReviewEvidence,
+  type ManagerReviewResult,
   type TaskEnvelope,
   type WorkOrderCodec
 } from "../protocol/src/index.js";
@@ -24,6 +26,59 @@ export interface DispatchReceipt {
 export interface ObservedProtocolReply {
   delivery: DeliveryEnvelope;
   message_id: string;
+}
+
+function reviewEvidenceData(evidence?: ManagerReviewEvidence): Record<string, unknown> | undefined {
+  if (!evidence) return undefined;
+  return {
+    review_id: evidence.review_id,
+    reviewed_at: evidence.reviewed_at,
+    source: evidence.source
+  };
+}
+
+function assertReviewForReceipt(receipt: DispatchReceipt, review: ManagerReviewResult): void {
+  if (!review || typeof review !== "object") throw new Error("manager review is invalid");
+  if (typeof review.task_id !== "string" || review.task_id !== receipt.task.task_id) {
+    throw new Error("manager review task_id mismatch");
+  }
+  if (typeof review.execution_id !== "string" || review.execution_id !== receipt.task.execution_id) {
+    throw new Error("manager review execution_id mismatch");
+  }
+  if (typeof review.verdict !== "string" || !["accept", "rework", "resume", "cancel"].includes(review.verdict)) {
+    throw new Error("manager review verdict is invalid");
+  }
+  if (typeof review.summary !== "string" || !review.summary.trim()) {
+    throw new Error("manager review summary is required");
+  }
+  if (
+    !review.evidence ||
+    typeof review.evidence !== "object" ||
+    typeof review.evidence.review_id !== "string" ||
+    !review.evidence.review_id.trim() ||
+    typeof review.evidence.source !== "string" ||
+    !review.evidence.source.trim() ||
+    typeof review.evidence.reviewed_at !== "string"
+  ) {
+    throw new Error("manager review evidence is incomplete");
+  }
+  if (!Number.isFinite(Date.parse(review.evidence.reviewed_at))) {
+    throw new Error("manager review evidence reviewed_at is invalid");
+  }
+  if (review.verdict === "rework" || review.verdict === "resume") {
+    if (typeof review.next_execution_id !== "string" || !review.next_execution_id.trim() || review.next_execution_id === review.execution_id) {
+      throw new Error(`${review.verdict} review requires a new next_execution_id`);
+    }
+    if (
+      !Array.isArray(review.requirements) ||
+      review.requirements.length === 0 ||
+      review.requirements.some((item) => typeof item !== "string" || !item.trim())
+    ) {
+      throw new Error(`${review.verdict} review requires non-empty requirements`);
+    }
+  } else if (review.next_execution_id !== undefined || review.requirements !== undefined) {
+    throw new Error(`${review.verdict} review must not include rework fields`);
+  }
 }
 
 export class TaskCoordinator {
@@ -131,7 +186,8 @@ export class TaskCoordinator {
     receipt: DispatchReceipt,
     newExecutionId: string,
     mode: "rework" | "resume",
-    requirements: readonly string[] = []
+    requirements: readonly string[] = [],
+    evidence?: ManagerReviewEvidence
   ): Promise<DispatchReceipt> {
     if (!newExecutionId.trim() || newExecutionId === receipt.task.execution_id) {
       throw new Error("redispatch requires a new execution id");
@@ -149,7 +205,11 @@ export class TaskCoordinator {
       type: mode === "rework" ? "review.rework" : "review.resume",
       task_id: receipt.task.task_id,
       execution_id: newExecutionId,
-      data: { previous_execution_id: receipt.task.execution_id, requirements: [...requirements] }
+      data: {
+        previous_execution_id: receipt.task.execution_id,
+        requirements: [...requirements],
+        ...(evidence ? { review_evidence: reviewEvidenceData(evidence) } : {})
+      }
     });
     this.#ledger.append({ type: "dispatch.requested", task_id: task.task_id, execution_id: task.execution_id });
     const sent = await this.#transport.send(receipt.room, workOrder);
@@ -167,12 +227,19 @@ export class TaskCoordinator {
     };
   }
 
-  async accept(receipt: DispatchReceipt, summary = "accepted"): Promise<void> {
+  async accept(
+    receipt: DispatchReceipt,
+    summary = "accepted",
+    evidence?: ManagerReviewEvidence
+  ): Promise<void> {
     this.#ledger.append({
       type: "review.accepted",
       task_id: receipt.task.task_id,
       execution_id: receipt.task.execution_id,
-      data: { summary }
+      data: {
+        summary,
+        ...(evidence ? { review_evidence: reviewEvidenceData(evidence) } : {})
+      }
     });
     await this.#transport.closeRoom(receipt.room);
     this.#ledger.append({
@@ -181,5 +248,50 @@ export class TaskCoordinator {
       execution_id: receipt.task.execution_id,
       data: { room_id: receipt.room.room_id, topic_id: receipt.room.room_id }
     });
+  }
+
+  async cancel(
+    receipt: DispatchReceipt,
+    summary = "cancelled",
+    evidence?: ManagerReviewEvidence
+  ): Promise<void> {
+    this.#ledger.append({
+      type: "task.cancelled",
+      task_id: receipt.task.task_id,
+      execution_id: receipt.task.execution_id,
+      data: {
+        summary,
+        ...(evidence ? { review_evidence: reviewEvidenceData(evidence) } : {})
+      }
+    });
+    await this.#transport.closeRoom(receipt.room);
+    this.#ledger.append({
+      type: "topic.closed",
+      task_id: receipt.task.task_id,
+      execution_id: receipt.task.execution_id,
+      data: { room_id: receipt.room.room_id, topic_id: receipt.room.room_id }
+    });
+  }
+
+  async applyManagerReview(
+    receipt: DispatchReceipt,
+    review: ManagerReviewResult
+  ): Promise<DispatchReceipt | undefined> {
+    assertReviewForReceipt(receipt, review);
+    if (review.verdict === "accept") {
+      await this.accept(receipt, review.summary, review.evidence);
+      return undefined;
+    }
+    if (review.verdict === "cancel") {
+      await this.cancel(receipt, review.summary, review.evidence);
+      return undefined;
+    }
+    return this.redispatch(
+      receipt,
+      review.next_execution_id as string,
+      review.verdict,
+      review.requirements ?? [],
+      review.evidence
+    );
   }
 }

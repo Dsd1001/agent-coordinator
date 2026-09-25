@@ -60,3 +60,9 @@ This tolerant parsing is safe only together with the hard identity binding: send
 ## Rework and resume in a room
 
 Rework/resume keeps the stable task and transport room but creates a new execution ID. In Telegram, this means retaining the same forum topic. The old execution remains auditable. Any late delivery carrying the previous execution ID is rejected for the current attempt. The same transport message/delivery ID must not be consumed twice.
+
+## Manager review protocol
+
+A manager review is bound to the current `task_id` and `execution_id`. The caller supplies a verification record only after delivery identity and artifact verification have passed. The manager returns explicit review evidence (`review_id`, timestamp, source) so accept/rework/resume/cancel decisions can be audited in the event ledger.
+
+For `rework` and `resume`, the reviewed execution remains immutable and the decision supplies a distinct `next_execution_id` plus non-empty requirements. The coordinator reuses the stable task/room and dispatches the new execution. `accept` and `cancel` terminate the task and close its room; uncertain room-close outcomes remain recoverable through reconciliation.

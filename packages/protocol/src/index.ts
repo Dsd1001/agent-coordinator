@@ -137,3 +137,46 @@ export function assertDeliveryIdentity(
   const errors = verifyDeliveryIdentity(expected, observed);
   if (errors.length > 0) throw new Error(`delivery rejected: ${errors.join(", ")}`);
 }
+
+export type ReviewVerdict = "accept" | "rework" | "resume" | "cancel";
+
+export interface DeliveryVerificationEvidence {
+  verification_id: string;
+  verified_at: string;
+  identity_verified: true;
+  artifacts_verified: true;
+}
+
+export interface ManagerPreparationReceipt {
+  task_id: string;
+  execution_id: string;
+  manager_reference: string;
+  prepared_at: string;
+}
+
+export interface ManagerReviewRequest {
+  task: TaskEnvelope;
+  delivery: DeliveryEnvelope;
+  verification: DeliveryVerificationEvidence;
+}
+
+export interface ManagerReviewEvidence {
+  review_id: string;
+  reviewed_at: string;
+  source: string;
+}
+
+export interface ManagerReviewResult {
+  task_id: string;
+  execution_id: string;
+  verdict: ReviewVerdict;
+  summary: string;
+  requirements?: string[];
+  next_execution_id?: string;
+  evidence: ManagerReviewEvidence;
+}
+
+export interface ManagerAdapter {
+  prepareTask(task: TaskEnvelope): Promise<ManagerPreparationReceipt>;
+  reviewDelivery(request: ManagerReviewRequest): Promise<ManagerReviewResult>;
+}
