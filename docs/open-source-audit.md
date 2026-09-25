@@ -21,11 +21,12 @@ The legacy `/srv/consultant` coordination package is marked `private: true` and 
 - absolute deployment-specific paths
 - private hostnames/endpoints
 
-## Before first public push
+## Completed before first public push
 
-1. Run repository secret scan.
-2. Confirm every copied source file has clear provenance.
-3. Decide top-level project license.
-4. Add third-party notices/attribution.
-5. Replace every production identifier with example placeholders.
-6. Review git history, not only the working tree.
+- [x] Repository release/secret scan passed.
+- [x] Public implementation was limited to source with clear provenance or clean generic implementation.
+- [x] Top-level license selected: Apache-2.0.
+- [x] Third-party notices/attribution added.
+- [x] Production identifiers were replaced with example placeholders.
+- [x] Staged content and git history were reviewed before publication.
+- [x] GitHub Actions repeated `npm ci`, tests, and the release scan successfully after publication.
