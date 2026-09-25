@@ -405,7 +405,7 @@ export async function reconcileTask(
   // uncertain. Only an observed closed topic is committed; open/unknown states
   // never call close again from reconciliation.
   if (
-    hasCurrentEvent(events, target.execution_id, ["review.accepted"]) &&
+    hasCurrentEvent(events, target.execution_id, ["review.accepted", "task.cancelled"]) &&
     !hasCurrentEvent(events, target.execution_id, ["topic.closed"])
   ) {
     const observation = await observers.transport?.observeTopic?.(target);
@@ -418,7 +418,7 @@ export async function reconcileTask(
         "topic",
         `topic:${target.execution_id}:unobserved`,
         "unobserved",
-        "Accepted task has no topic-close evidence; do not repeat the close side effect automatically."
+        "Terminal task has no topic-close evidence; do not repeat the close side effect automatically."
       );
     } else if (observation.execution_id !== target.execution_id) {
       report.observations.push(`Topic evidence belongs to stale execution ${observation.execution_id}.`);

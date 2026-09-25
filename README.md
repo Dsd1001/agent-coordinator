@@ -17,7 +17,9 @@ The reference architecture keeps a privileged manager agent in control of task p
 
 ## Reference deployment
 
-`Hermes manager -> coordination layer -> Telegram forum topic -> Pi worker -> Gondolin VM`
+`Hermes manager adapter -> coordinator -> transport room -> Pi worker -> sandbox backend`
+
+Reference adapters currently map that to `Hermes -> Telegram forum topic -> Pi -> Gondolin`.
 
 The public project will not contain production credentials, chat IDs, historical sessions, user data, or private Consultant source code.
 
@@ -32,6 +34,8 @@ The repository contains executable TypeScript for:
 - task lifecycle transitions with in-memory and SQLite WAL event ledgers
 - task/execution/channel/room/worker delivery identity verification
 - SHA-256 verification for workspace-scoped delivery artifacts
+- framework-neutral manager preparation/review contracts with explicit review evidence
+- clean Hermes manager adapter through injected framework operations
 - transport-neutral coordinator ports for rooms/messages and work-order codecs
 - Telegram forum topic creation, sending, and closing as a reference adapter
 - coordinator/administrator sender allowlists based on immutable user IDs

@@ -229,3 +229,28 @@ test("open topic after accept remains a manual action and does not repeat close"
   assert.equal(ledger.list("t1").length, count);
   ledger.close();
 });
+
+
+test("cancelled task can reconcile observed topic closure without repeating close", async () => {
+  const path = await tempDb();
+  const ledger = new SqliteEventLedger(path);
+  seedDispatchIntent(ledger);
+  ledger.append({ type: "dispatch.confirmed", task_id: "t1", execution_id: "e1", data: { message_id: "d1" } });
+  ledger.append({ type: "task.cancelled", task_id: "t1", execution_id: "e1", data: { summary: "cancelled" } });
+
+  let observed = 0;
+  const observers = {
+    transport: {
+      observeTopic: async () => {
+        observed += 1;
+        return { state: "closed", execution_id: "e1" };
+      }
+    }
+  };
+  const report = await reconcileTask(ledger, "t1", observers);
+  assert.match(report.changes.join("\n"), /topic closure/i);
+  assert.equal(ledger.list("t1").filter((event) => event.type === "topic.closed").length, 1);
+  await reconcileTask(ledger, "t1", observers);
+  assert.equal(observed, 1);
+  ledger.close();
+});
