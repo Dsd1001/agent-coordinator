@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Dsd1001/agent-coordinator/schemas/0.1/coordination-event.schema.json",
+  "title": "CoordinationEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seq", "type", "task_id", "execution_id", "at"],
+  "properties": {
+    "seq": {"type": "integer", "minimum": 1},
+    "type": {
+      "type": "string",
+      "enum": [
+        "task.prepared",
+        "room.created",
+        "input.attached",
+        "dispatch.requested",
+        "dispatch.confirmed",
+        "worker.started",
+        "worker.blocked",
+        "worker.failed",
+        "delivery.observed",
+        "review.rework",
+        "review.resume",
+        "review.accepted",
+        "task.cancelled",
+        "room.closed",
+        "reconciliation.recorded"
+      ]
+    },
+    "task_id": {"type": "string", "minLength": 1},
+    "execution_id": {"type": "string", "minLength": 1},
+    "at": {"type": "string", "format": "date-time"},
+    "data": {"type": "object"}
+  }
+}

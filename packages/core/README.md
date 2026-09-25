@@ -29,7 +29,7 @@ The implementation rejects database schema versions newer than it understands in
 
 `verifyArtifactRefs()` verifies workspace-relative regular files against declared SHA-256 digests. Manifest validation rejects traversal, absolute/Windows-style paths, backslash separators, malformed digests, and duplicate paths before file I/O. Symlink components are rejected, files are opened with `O_NOFOLLOW`, and file identity is checked before and after hashing.
 
-`verifyDeliveryForAcceptance()` first enforces task/execution/channel/topic/worker identity, then requires a `delivered` status, all worker-declared checks to pass, and all declared artifacts to verify. `assertDeliveryReadyForAcceptance()` provides the fail-fast form for review pipelines.
+`verifyDeliveryForAcceptance()` first enforces task/execution/channel/room/worker identity, then requires a `delivered` status, all worker-declared checks to pass, and all declared artifacts to verify. `assertDeliveryReadyForAcceptance()` provides the fail-fast form for review pipelines.
 
 ## Supervisor health and backoff
 
@@ -47,6 +47,16 @@ A successful poll resets the poll failure counter and clears poll retry fields. 
 
 ## Recovery and reconciliation
 
-`reconcileTask()` is the operator-facing library entry point for recovering durable coordination state after crashes or ambiguous network outcomes. It consumes read-only transport/worker observations and can append confirmed receipts, worker starts, deliveries, and topic closures. Unknown, absent, or stale evidence is recorded as an idempotent `reconciliation.recorded` audit event and returned as a manual action.
+`reconcileTask()` is the operator-facing library entry point for recovering durable coordination state after crashes or ambiguous network outcomes. It consumes read-only transport/worker observations and can append confirmed receipts, worker starts, deliveries, and room closures. Unknown, absent, or stale evidence is recorded as an idempotent `reconciliation.recorded` audit event and returned as a manual action.
 
 The reconciliation API deliberately has no send/start/close capability, so an ambiguous external side effect cannot be repeated by the recovery engine. See `docs/recovery.md`.
+
+## Resource quotas and concurrency
+
+`ExecutionAdmissionController` enforces global active execution limits, per-worker-key limits, a bounded queue, duplicate-execution rejection, and cancellable queued work. Queue draining selects the earliest request that is currently eligible, preventing one saturated worker key from blocking unrelated work.
+
+`ResourceQuotaPolicy` also defines runtime, memory, artifact-count, and total artifact-byte limits. `WorkerProcessManager` implementations must enforce runtime/memory limits or reject start; artifact verification can consume the corresponding artifact limits.
+
+## Recovery semantic audit
+
+`auditRecoverySemantics()` validates durable event history independently of external observations. `reconcileTask()` runs the audit before and after reconciliation, so invalid ordering, duplicate terminal evidence, stale execution transitions, duplicate decision keys, unknown event types, and invalid room closure history fail closed before external observer calls.

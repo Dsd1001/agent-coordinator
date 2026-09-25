@@ -14,5 +14,30 @@ if grep -RInE --exclude-dir=.git --exclude='release-check.sh' '(botToken|apiKey|
   echo "release-check: possible inline secret found" >&2
   fail=1
 fi
+root_version=$(node -p "require('./package.json').version")
+for file in packages/*/package.json; do
+  version=$(node -p "require('./$file').version")
+  if [ "$version" != "$root_version" ]; then
+    echo "release-check: version mismatch $file=$version root=$root_version" >&2
+    fail=1
+  fi
+done
+minor=$(printf '%s' "$root_version" | awk -F. '{print $1"."$2}')
+if ! grep -q "PROTOCOL_VERSION = \"$minor\." packages/protocol/src/index.ts; then
+  echo "release-check: protocol version is outside package major.minor line" >&2
+  fail=1
+fi
+if ! grep -q "EXTENSION_API_VERSION = \"$minor\." packages/extension-api/index.ts; then
+  echo "release-check: extension API version is outside package major.minor line" >&2
+  fail=1
+fi
+if grep -RInE --include='*.ts' 'topic_id|topic\.created|topic\.closed' packages/protocol/src packages/core packages/coordinator; then
+  echo "release-check: Telegram topic identity leaked into stable public TypeScript protocol/core" >&2
+  fail=1
+fi
+if grep -RInE --include='*.json' 'topic_id|topic\.created|topic\.closed' schemas; then
+  echo "release-check: Telegram topic identity leaked into stable public schemas" >&2
+  fail=1
+fi
 [ "$fail" -eq 0 ] || exit 1
 echo "release-check: clean"

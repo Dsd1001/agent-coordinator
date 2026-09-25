@@ -1,3 +1,33 @@
+export const PROTOCOL_VERSION = "0.1.0" as const;
+
+export interface ParsedProtocolVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+export function parseProtocolVersion(value: string): ParsedProtocolVersion {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(value);
+  if (!match) throw new Error(`invalid protocol version: ${value}`);
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+}
+
+export function isProtocolCompatible(peerVersion: string, localVersion = PROTOCOL_VERSION): boolean {
+  const peer = parseProtocolVersion(peerVersion);
+  const local = parseProtocolVersion(localVersion);
+  // Before 1.0, compatibility is scoped to the same major+minor line. Patch
+  // releases must remain wire-compatible. At/after 1.0, semver-major governs.
+  return local.major === 0
+    ? peer.major === local.major && peer.minor === local.minor
+    : peer.major === local.major;
+}
+
+export function assertProtocolCompatible(peerVersion: string, localVersion = PROTOCOL_VERSION): void {
+  if (!isProtocolCompatible(peerVersion, localVersion)) {
+    throw new Error(`incompatible protocol version: local=${localVersion} peer=${peerVersion}`);
+  }
+}
+
 export type TaskStatus =
   | "prepared"
   | "dispatching"
@@ -24,8 +54,6 @@ export interface TaskEnvelope {
   acceptance: string[];
   /** Transport-neutral collaboration namespace assigned by the coordinator. */
   room_id?: string | null;
-  /** @deprecated Telegram-first v0.1 compatibility alias for room_id. */
-  topic_id?: string | null;
   inputs?: ArtifactRef[];
 }
 
@@ -81,14 +109,14 @@ export interface ExpectedDeliveryBinding {
   task_id: string;
   execution_id: string;
   channel_id: string;
-  topic_id: string;
+  room_id: string;
   worker_sender_id: string;
 }
 
 export interface ObservedDelivery {
   payload: DeliveryEnvelope;
   channel_id: string;
-  topic_id: string;
+  room_id: string;
   sender_id: string;
   delivery_id: string;
 }
@@ -124,7 +152,7 @@ export function verifyDeliveryIdentity(
   if (observed.payload.task_id !== expected.task_id) errors.push("task_id mismatch");
   if (observed.payload.execution_id !== expected.execution_id) errors.push("execution_id mismatch");
   if (observed.channel_id !== expected.channel_id) errors.push("channel_id mismatch");
-  if (observed.topic_id !== expected.topic_id) errors.push("topic_id mismatch");
+  if (observed.room_id !== expected.room_id) errors.push("room_id mismatch");
   if (observed.sender_id !== expected.worker_sender_id) errors.push("worker sender mismatch");
   if (!observed.delivery_id) errors.push("delivery_id missing");
   return errors;
@@ -179,4 +207,51 @@ export interface ManagerReviewResult {
 export interface ManagerAdapter {
   prepareTask(task: TaskEnvelope): Promise<ManagerPreparationReceipt>;
   reviewDelivery(request: ManagerReviewRequest): Promise<ManagerReviewResult>;
+}
+
+export interface WorkerResourceLimits {
+  max_runtime_ms: number;
+  max_memory_mb: number;
+}
+
+export interface WorkerBinding {
+  task_id: string;
+  execution_id: string;
+  conversation_id: string;
+  workspace: string;
+  resource_limits: WorkerResourceLimits;
+}
+
+export interface WorkerStatus {
+  state: "starting" | "running" | "stopped" | "failed";
+  worker_id: string;
+  updated_at: string;
+  detail?: string;
+}
+
+export interface WorkerBackend {
+  start(binding: WorkerBinding): Promise<WorkerStatus>;
+  inspect(worker_id: string): Promise<WorkerStatus>;
+  stop(worker_id: string, reason?: string): Promise<void>;
+}
+
+export interface ProcessSpec {
+  command: string;
+  args: string[];
+  cwd: string;
+  env: Record<string, string>;
+  worker_id: string;
+  resource_limits: WorkerResourceLimits;
+}
+
+export interface ManagedProcess {
+  worker_id: string;
+  started_at: string;
+}
+
+export interface WorkerProcessManager {
+  /** Implementations MUST enforce spec.resource_limits or reject the start. */
+  start(spec: ProcessSpec): Promise<ManagedProcess>;
+  inspect(workerId: string): Promise<WorkerStatus>;
+  stop(workerId: string, reason?: string): Promise<void>;
 }

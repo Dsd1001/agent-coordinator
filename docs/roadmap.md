@@ -1,34 +1,41 @@
 # Roadmap
 
-## v0.1 - reference extraction — complete
+The earlier v0.1/v0.2/v0.3 labels used during repository construction were **internal pre-release milestones**, not public semantic versions. The first tagged public release is `0.1.0`.
 
-- [x] protocol schemas
-- [x] Telegram topic transport adapter
-- [x] Pi worker adapter
-- [x] sandbox fail-closed invariant
-- [x] sender allowlist and authenticated worker cold-start
-- [x] example systemd deployment
-- [x] end-to-end task -> topic -> worker -> delivery -> review test
+## Pre-release milestones — complete
 
-## v0.2 - durable coordination — complete
+### Reference extraction
 
-- [x] [#1](https://github.com/Dsd1001/agent-coordinator/issues/1) SQLite WAL task/event ledger
-- [x] [#2](https://github.com/Dsd1001/agent-coordinator/issues/2) structured deliveries and artifact hash verification
-- [x] [#3](https://github.com/Dsd1001/agent-coordinator/issues/3) supervisor health/backoff metrics
-- [x] [#4](https://github.com/Dsd1001/agent-coordinator/issues/4) recovery/reconciliation tooling
+- [x] protocol schemas and executable core
+- [x] Telegram forum-topic reference transport
+- [x] Pi worker reference adapter
+- [x] fail-closed sandbox invariant
+- [x] sender/cold-start authorization
+- [x] end-to-end task -> room -> worker -> delivery -> review flow
 
-## v0.3 - adapter architecture — complete
+### Durable coordination
 
-- [x] [#10](https://github.com/Dsd1001/agent-coordinator/issues/10) decouple coordinator core from Telegram transport and wire format
-- [x] [#11](https://github.com/Dsd1001/agent-coordinator/issues/11) define a replaceable fail-closed sandbox backend
-- [x] [#12](https://github.com/Dsd1001/agent-coordinator/issues/12) implement a clean Hermes manager adapter
-- [x] replaceable worker process manager boundary (`WorkerProcessManager`)
+- [x] SQLite WAL event ledger
+- [x] structured delivery/artifact hash verification
+- [x] supervisor health/backoff metrics
+- [x] recovery/reconciliation tooling
 
-Hermes, Pi, Telegram, and Gondolin are now reference adapters around transport/framework-neutral coordination, worker-process, and sandbox contracts. None of them is required by the coordinator core.
+### Adapter architecture
 
-## v1.0
+- [x] transport-independent coordinator and codec ports
+- [x] replaceable fail-closed sandbox backend
+- [x] clean Hermes manager adapter
+- [x] replaceable worker process manager boundary
 
-- stable protocol
-- resource quotas and concurrency policy
-- audited recovery semantics
-- documented extension API
+## Release 0.1.0 — complete
+
+- [x] stabilize protocol 0.1 and canonical `room_id` events/identity
+- [x] resource quotas and concurrency admission policy
+- [x] audit and enforce recovery semantic invariants
+- [x] publish extension API 0.1 with atomic registration
+- [x] version all workspace packages consistently
+- [x] document compatibility, security, resources, recovery, and extensions
+
+## Next
+
+Future minor releases can add additional transports/backends, distributed admission control, richer observability, and protocol extensions. Before 1.0, a minor version may intentionally revise public contracts; patch releases within a minor line should remain compatible.

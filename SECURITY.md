@@ -13,17 +13,22 @@ The manager and worker belong to different trust zones.
 - Remote workers are **fail-closed**: if the sandbox is unavailable, host `read`, `write`, `edit`, and `bash` tools are denied.
 - Worker messages are accepted only from configured coordinator/admin sender IDs.
 - Worker **cold-start** is separately authorized: a forum update must come from a configured coordinator ID and explicitly address the worker bot before it may allocate a worker process. Runtime authorization remains mandatory after startup.
-- A delivery must match task ID, execution ID, topic/thread ID, and expected worker identity.
+- A delivery must match task ID, execution ID, room ID, and expected worker identity.
 - Input artifacts are copied into the worker workspace and hash-verified. Workers do not receive manager filesystem access.
 - Delivery artifacts are accepted only as workspace-relative regular files with valid SHA-256 bindings; traversal and symbolic-link paths are rejected before acceptance.
 - Secrets never belong in repository config, task payloads, logs, examples, or fixtures.
 - Supervisor health snapshots contain counters/timestamps and stable identifiers only; raw errors, transport payloads, prompts, credentials, and provider configuration are excluded.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
-- Recovery observers are read-only by contract; reconciliation may record positively observed outcomes but cannot send messages, start workers, or close topics.
+- Recovery observers are read-only by contract; reconciliation may record positively observed outcomes but cannot send messages, start workers, or close rooms.
 - Manager review accepts only a delivery explicitly marked identity/artifact verified, and the Hermes adapter rejects task/execution mismatches.
 - The coordinator applies manager review only when its durable projection still shows that exact execution as `delivered`; premature or stale review results cannot trigger accept/rework/resume/cancel side effects.
 - Unknown Hermes client failures are not declared safe to retry automatically because the remote operation may already have completed.
 - Hermes client exceptions are converted to structured adapter errors without copying upstream exception text or private context.
+
+- Resource admission is bounded by global/per-worker concurrency and queue limits; worker process managers must enforce runtime/memory limits or reject start.
+- Delivery artifact count/byte quotas are enforced before or during verification so untrusted outputs cannot force unbounded filesystem hashing.
+- Durable history is audited before/after reconciliation; hard semantic errors fail closed before external observers are called.
+- Extensions are host-selected in-process code. Atomic registration prevents partial install, but the host remains responsible for trusting the extension module itself.
 
 ## Reporting
 

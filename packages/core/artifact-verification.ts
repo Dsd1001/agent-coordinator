@@ -28,6 +28,18 @@ export interface ArtifactVerificationReport {
   checks: DeliveryCheck[];
 }
 
+
+export interface ArtifactVerificationOptions {
+  max_artifact_count?: number;
+  max_total_artifact_bytes?: number;
+}
+
+function quotaValue(value: number | undefined, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} must be a non-negative safe integer`);
+  return value;
+}
+
 export interface DeliveryAcceptanceReport extends ArtifactVerificationReport {
   identity_verified: true;
   delivery_status: ObservedDelivery["payload"]["status"];
@@ -124,13 +136,25 @@ function sameFileSnapshot(
   );
 }
 
-async function verifyArtifactFile(root: string, artifact: ArtifactRef): Promise<ArtifactVerificationResult> {
+async function verifyArtifactFile(
+  root: string,
+  artifact: ArtifactRef,
+  maxBytes?: number
+): Promise<ArtifactVerificationResult> {
   try {
     const path = await resolveArtifactFile(root, artifact.path);
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       const before = await handle.stat();
       if (!before.isFile()) throw new SafeArtifactError("artifact must be a regular file");
+      if (maxBytes !== undefined && before.size > maxBytes) {
+        return {
+          artifact,
+          result: "failed",
+          size: before.size,
+          detail: "artifact exceeds remaining byte quota"
+        };
+      }
       const hash = createHash("sha256");
       const stream = handle.createReadStream({ autoClose: false });
       for await (const chunk of stream) hash.update(chunk);
@@ -164,9 +188,26 @@ async function verifyArtifactFile(root: string, artifact: ArtifactRef): Promise<
 
 export async function verifyArtifactRefs(
   workspacePath: string,
-  artifacts: readonly ArtifactRef[]
+  artifacts: readonly ArtifactRef[],
+  options: ArtifactVerificationOptions = {}
 ): Promise<ArtifactVerificationReport> {
+  const maxCount = quotaValue(options.max_artifact_count, "max_artifact_count");
+  const maxBytes = quotaValue(options.max_total_artifact_bytes, "max_total_artifact_bytes");
   const manifestChecks = validateArtifactRefs(artifacts);
+  const countCheck: DeliveryCheck | undefined = maxCount === undefined
+    ? undefined
+    : {
+        name: "artifact.quota.count",
+        result: artifacts.length <= maxCount ? "passed" : "failed",
+        ...(artifacts.length <= maxCount ? {} : { detail: `artifact count ${artifacts.length} exceeds limit ${maxCount}` })
+      };
+  if (countCheck?.result === "failed") {
+    return {
+      ok: false,
+      checks: [...manifestChecks, countCheck],
+      artifacts: artifacts.map((artifact) => ({ artifact, result: "not_run", detail: "artifact count quota exceeded" }))
+    };
+  }
   if (manifestChecks.some((check) => check.result !== "passed")) {
     return {
       ok: false,
@@ -188,6 +229,7 @@ export async function verifyArtifactRefs(
       ok: false,
       checks: [
         ...manifestChecks,
+        ...(countCheck ? [countCheck] : []),
         { name: "artifact.workspace", result: "failed", detail }
       ],
       artifacts: artifacts.map((artifact) => ({ artifact, result: "not_run", detail }))
@@ -195,23 +237,52 @@ export async function verifyArtifactRefs(
   }
 
   const verified: ArtifactVerificationResult[] = [];
-  for (const artifact of artifacts) verified.push(await verifyArtifactFile(root, artifact));
+  let totalBytes = 0;
+  let byteQuotaExceeded = false;
+  for (let index = 0; index < artifacts.length; index++) {
+    if (byteQuotaExceeded) {
+      verified.push({ artifact: artifacts[index], result: "not_run", detail: "artifact byte quota exceeded" });
+      continue;
+    }
+    const remaining = maxBytes === undefined ? undefined : Math.max(0, maxBytes - totalBytes);
+    const result = await verifyArtifactFile(root, artifacts[index], remaining);
+    verified.push(result);
+    if (result.detail === "artifact exceeds remaining byte quota") {
+      byteQuotaExceeded = true;
+    } else if (result.size !== undefined) {
+      // Bytes read for a hash mismatch still consume verification budget.
+      totalBytes += result.size;
+    }
+  }
   const fileChecks: DeliveryCheck[] = verified.map((result, index) => ({
     name: `artifact[${index}].sha256`,
     result: result.result,
     ...(result.detail ? { detail: result.detail } : {})
   }));
+  const byteCheck: DeliveryCheck | undefined = maxBytes === undefined
+    ? undefined
+    : {
+        name: "artifact.quota.bytes",
+        result: byteQuotaExceeded ? "failed" : "passed",
+        ...(byteQuotaExceeded ? { detail: `artifact byte limit ${maxBytes} exceeded` } : {})
+      };
   return {
-    ok: verified.every((result) => result.result === "passed"),
+    ok: verified.every((result) => result.result === "passed") && byteCheck?.result !== "failed",
     artifacts: verified,
-    checks: [...manifestChecks, ...fileChecks]
+    checks: [
+      ...manifestChecks,
+      ...(countCheck ? [countCheck] : []),
+      ...fileChecks,
+      ...(byteCheck ? [byteCheck] : [])
+    ]
   };
 }
 
 export async function verifyDeliveryForAcceptance(
   expected: ExpectedDeliveryBinding,
   observed: ObservedDelivery,
-  workspacePath: string
+  workspacePath: string,
+  artifactOptions: ArtifactVerificationOptions = {}
 ): Promise<DeliveryAcceptanceReport> {
   // Identity is deliberately checked before workspace resolution or file I/O.
   assertDeliveryIdentity(expected, observed);
@@ -229,7 +300,7 @@ export async function verifyDeliveryForAcceptance(
     result: declaredPassed ? "passed" : "failed",
     ...(declaredPassed ? {} : { detail: "one or more worker-declared checks did not pass" })
   };
-  const artifactReport = await verifyArtifactRefs(workspacePath, observed.payload.artifacts);
+  const artifactReport = await verifyArtifactRefs(workspacePath, observed.payload.artifacts, artifactOptions);
   const checks = [statusCheck, declaredCheck, ...artifactReport.checks];
   return {
     ok: statusCheck.result === "passed" && declaredCheck.result === "passed" && artifactReport.ok,
@@ -244,9 +315,10 @@ export async function verifyDeliveryForAcceptance(
 export async function assertDeliveryReadyForAcceptance(
   expected: ExpectedDeliveryBinding,
   observed: ObservedDelivery,
-  workspacePath: string
+  workspacePath: string,
+  artifactOptions: ArtifactVerificationOptions = {}
 ): Promise<DeliveryAcceptanceReport> {
-  const report = await verifyDeliveryForAcceptance(expected, observed, workspacePath);
+  const report = await verifyDeliveryForAcceptance(expected, observed, workspacePath, artifactOptions);
   if (!report.ok) {
     const failed = report.checks.filter((check) => check.result !== "passed").map((check) => check.name);
     throw new Error(`delivery verification failed: ${failed.join(", ")}`);

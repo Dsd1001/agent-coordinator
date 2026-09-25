@@ -1,3 +1,13 @@
+export type {
+  ManagedProcess,
+  ProcessSpec,
+  WorkerBackend,
+  WorkerBinding,
+  WorkerProcessManager,
+  WorkerResourceLimits,
+  WorkerStatus
+} from "../protocol/src/index.js";
+
 import {
   acquireReadySandbox,
   type ReadySandboxLease,
@@ -7,25 +17,15 @@ import {
   validateSandboxSpec
 } from "../sandbox/index.js";
 
-export interface WorkerBinding {
-  task_id: string;
-  execution_id: string;
-  conversation_id: string;
-  workspace: string;
-}
-
-export interface WorkerStatus {
-  state: "starting" | "running" | "stopped" | "failed";
-  worker_id: string;
-  updated_at: string;
-  detail?: string;
-}
-
-export interface WorkerBackend {
-  start(binding: WorkerBinding): Promise<WorkerStatus>;
-  inspect(worker_id: string): Promise<WorkerStatus>;
-  stop(worker_id: string, reason?: string): Promise<void>;
-}
+import type {
+  ManagedProcess,
+  ProcessSpec,
+  WorkerBackend,
+  WorkerBinding,
+  WorkerProcessManager,
+  WorkerResourceLimits,
+  WorkerStatus
+} from "../protocol/src/index.js";
 
 export interface SandboxPolicy {
   fail_closed: true;
@@ -76,14 +76,6 @@ export interface PiWorkerRuntimeConfig {
   cwd: string;
 }
 
-export interface ProcessSpec {
-  command: string;
-  args: string[];
-  cwd: string;
-  env: Record<string, string>;
-  worker_id: string;
-}
-
 function safeSessionId(value: string): string {
   const normalized = value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
   if (!normalized) throw new Error("conversation id cannot produce an empty session id");
@@ -100,6 +92,12 @@ export function buildPiWorkerProcessSpec(
 ): ProcessSpec {
   if (!binding.task_id.trim() || !binding.execution_id.trim() || !binding.conversation_id.trim()) {
     throw new Error("task, execution and conversation identities are required");
+  }
+  if (!Number.isSafeInteger(binding.resource_limits.max_runtime_ms) || binding.resource_limits.max_runtime_ms <= 0) {
+    throw new Error("max_runtime_ms must be a positive safe integer");
+  }
+  if (!Number.isSafeInteger(binding.resource_limits.max_memory_mb) || binding.resource_limits.max_memory_mb <= 0) {
+    throw new Error("max_memory_mb must be a positive safe integer");
   }
   assertAbsolutePath("pi_binary", config.pi_binary);
   assertAbsolutePath("extension_path", config.extension_path);
@@ -128,19 +126,9 @@ export function buildPiWorkerProcessSpec(
     ],
     cwd: config.cwd,
     env: { HOME: config.home },
-    worker_id: `pi-${sessionId}`
+    worker_id: `pi-${sessionId}`,
+    resource_limits: { ...binding.resource_limits }
   };
-}
-
-export interface ManagedProcess {
-  worker_id: string;
-  started_at: string;
-}
-
-export interface WorkerProcessManager {
-  start(spec: ProcessSpec): Promise<ManagedProcess>;
-  inspect(workerId: string): Promise<WorkerStatus>;
-  stop(workerId: string, reason?: string): Promise<void>;
 }
 
 export class PiWorkerBackend implements WorkerBackend {

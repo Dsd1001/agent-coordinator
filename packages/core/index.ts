@@ -2,7 +2,7 @@ import type { TaskStatus } from "../protocol/src/index.js";
 
 export type CoordinationEventType =
   | "task.prepared"
-  | "topic.created"
+  | "room.created"
   | "input.attached"
   | "dispatch.requested"
   | "dispatch.confirmed"
@@ -14,7 +14,7 @@ export type CoordinationEventType =
   | "review.resume"
   | "review.accepted"
   | "task.cancelled"
-  | "topic.closed"
+  | "room.closed"
   | "reconciliation.recorded";
 
 export interface CoordinationEvent {
@@ -34,7 +34,7 @@ export interface TaskProjection {
   task_id: string;
   execution_id: string;
   status: TaskStatus;
-  topic_id?: string;
+  room_id?: string;
   last_event_seq: number;
 }
 
@@ -79,15 +79,15 @@ export function projectTask(events: readonly CoordinationEvent[], taskId: string
   const relevant = events.filter((event) => event.task_id === taskId).sort((a, b) => a.seq - b.seq);
   if (relevant.length === 0) return undefined;
   let status: TaskStatus | undefined;
-  let topicId: string | undefined;
+  let roomId: string | undefined;
   let executionId = relevant[0].execution_id;
   for (const event of relevant) {
     executionId = event.execution_id;
     const nextStatus = statusByEvent[event.type];
     if (nextStatus) status = nextStatus;
-    if (event.type === "topic.created") {
-      const value = event.data?.topic_id;
-      if (typeof value === "string" && value) topicId = value;
+    if (event.type === "room.created") {
+      const value = event.data?.room_id;
+      if (typeof value === "string" && value) roomId = value;
     }
   }
   if (!status) throw new Error(`task ${taskId} has events but no state-bearing event`);
@@ -95,7 +95,7 @@ export function projectTask(events: readonly CoordinationEvent[], taskId: string
     task_id: taskId,
     execution_id: executionId,
     status,
-    topic_id: topicId,
+    room_id: roomId,
     last_event_seq: relevant.at(-1)?.seq ?? 0
   };
 }
@@ -107,6 +107,7 @@ export {
   validateArtifactRefs,
   verifyArtifactRefs,
   verifyDeliveryForAcceptance,
+  type ArtifactVerificationOptions,
   type ArtifactVerificationReport,
   type ArtifactVerificationResult,
   type DeliveryAcceptanceReport
@@ -134,6 +135,28 @@ export {
   type ReconciliationTarget,
   type ReconciliationTransportObserver,
   type ReconciliationWorkerObserver,
-  type TopicObservation,
+  type RoomObservation,
   type WorkerObservation
 } from "./reconciliation.js";
+
+export {
+  DEFAULT_RESOURCE_QUOTA_POLICY,
+  ExecutionAdmissionController,
+  ResourceQuotaError,
+  artifactVerificationLimits,
+  processResourceLimits,
+  validateResourceQuotaPolicy,
+  type AdmissionSnapshot,
+  type ExecutionAdmissionRequest,
+  type ExecutionLease,
+  type ResourceQuotaErrorCode,
+  type ResourceQuotaPolicy
+} from "./resource-policy.js";
+
+export {
+  assertRecoverySemantics,
+  auditRecoverySemantics,
+  type RecoveryAuditFinding,
+  type RecoveryAuditReport,
+  type RecoveryAuditSeverity
+} from "./recovery-audit.js";

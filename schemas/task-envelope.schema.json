@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/agent-coordinator/task-envelope.schema.json",
+  "$id": "https://github.com/Dsd1001/agent-coordinator/schemas/0.1/task-envelope.schema.json",
   "title": "TaskEnvelope",
   "type": "object",
   "additionalProperties": false,
@@ -35,12 +35,6 @@
       }
     },
     "room_id": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "topic_id": {
       "type": [
         "string",
         "null"

@@ -14,10 +14,10 @@ async function tempDb() {
 function seedDispatchIntent(ledger, executionId = "e1") {
   ledger.append({ type: "task.prepared", task_id: "t1", execution_id: executionId });
   ledger.append({
-    type: "topic.created",
+    type: "room.created",
     task_id: "t1",
     execution_id: executionId,
-    data: { channel_id: "chat-1", topic_id: "42" }
+    data: { channel_id: "chat-1", room_id: "42" }
   });
   ledger.append({ type: "dispatch.requested", task_id: "t1", execution_id: executionId });
 }
@@ -34,7 +34,7 @@ function delivery(executionId = "e1", overrides = {}) {
       limitations: []
     },
     channel_id: "chat-1",
-    topic_id: "42",
+    room_id: "42",
     sender_id: "worker-uid",
     delivery_id: `delivery-${executionId}`,
     ...overrides
@@ -182,7 +182,7 @@ test("stale execution delivery cannot reconcile into the current execution", asy
   ledger.close();
 });
 
-test("accepted task records observed topic closure once but never closes it itself", async () => {
+test("accepted task records observed room closure once but never closes it itself", async () => {
   const path = await tempDb();
   const ledger = new SqliteEventLedger(path);
   seedDispatchIntent(ledger);
@@ -193,22 +193,22 @@ test("accepted task records observed topic closure once but never closes it itse
   let observed = 0;
   const observers = {
     transport: {
-      observeTopic: async () => {
+      observeRoom: async () => {
         observed += 1;
         return { state: "closed", execution_id: "e1" };
       }
     }
   };
   const report = await reconcileTask(ledger, "t1", observers);
-  assert.match(report.changes.join("\n"), /topic closure/i);
-  assert.equal(ledger.list("t1").filter((event) => event.type === "topic.closed").length, 1);
+  assert.match(report.changes.join("\n"), /room closure/i);
+  assert.equal(ledger.list("t1").filter((event) => event.type === "room.closed").length, 1);
   await reconcileTask(ledger, "t1", observers);
-  assert.equal(ledger.list("t1").filter((event) => event.type === "topic.closed").length, 1);
+  assert.equal(ledger.list("t1").filter((event) => event.type === "room.closed").length, 1);
   assert.equal(observed, 1);
   ledger.close();
 });
 
-test("open topic after accept remains a manual action and does not repeat close", async () => {
+test("open room after accept remains a manual action and does not repeat close", async () => {
   const path = await tempDb();
   const ledger = new SqliteEventLedger(path);
   seedDispatchIntent(ledger);
@@ -218,12 +218,12 @@ test("open topic after accept remains a manual action and does not repeat close"
 
   const observers = {
     transport: {
-      observeTopic: async () => ({ state: "open", execution_id: "e1" })
+      observeRoom: async () => ({ state: "open", execution_id: "e1" })
     }
   };
   const first = await reconcileTask(ledger, "t1", observers);
   assert.match(first.manual_actions.join("\n"), /will not repeat the close side effect/i);
-  assert.equal(ledger.list("t1").filter((event) => event.type === "topic.closed").length, 0);
+  assert.equal(ledger.list("t1").filter((event) => event.type === "room.closed").length, 0);
   const count = ledger.list("t1").length;
   await reconcileTask(ledger, "t1", observers);
   assert.equal(ledger.list("t1").length, count);
@@ -231,7 +231,7 @@ test("open topic after accept remains a manual action and does not repeat close"
 });
 
 
-test("cancelled task can reconcile observed topic closure without repeating close", async () => {
+test("cancelled task can reconcile observed room closure without repeating close", async () => {
   const path = await tempDb();
   const ledger = new SqliteEventLedger(path);
   seedDispatchIntent(ledger);
@@ -241,15 +241,15 @@ test("cancelled task can reconcile observed topic closure without repeating clos
   let observed = 0;
   const observers = {
     transport: {
-      observeTopic: async () => {
+      observeRoom: async () => {
         observed += 1;
         return { state: "closed", execution_id: "e1" };
       }
     }
   };
   const report = await reconcileTask(ledger, "t1", observers);
-  assert.match(report.changes.join("\n"), /topic closure/i);
-  assert.equal(ledger.list("t1").filter((event) => event.type === "topic.closed").length, 1);
+  assert.match(report.changes.join("\n"), /room closure/i);
+  assert.equal(ledger.list("t1").filter((event) => event.type === "room.closed").length, 1);
   await reconcileTask(ledger, "t1", observers);
   assert.equal(observed, 1);
   ledger.close();

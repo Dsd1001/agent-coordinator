@@ -44,7 +44,7 @@ Manager privilege is never inherited by the worker.
 - `ManagerAdapter`: framework-neutral task preparation and verified-delivery review. The Hermes reference adapter implements it through an injected client and returns explicit review evidence.
 - `CoordinationTransport`: create a room, send messages, and close a room.
 - `WorkOrderCodec`: render task work orders and parse worker protocol replies without coupling the coordinator to a transport wire format.
-- `WorkerBackend`: start, stop, inspect, and resume workers.
+- `WorkerBackend`: start, stop, and inspect workers.
 - `SandboxBackend`: create isolated execution environment and mount workspace/shared storage.
 - `Ledger`: durable task/execution/event/artifact state.
 
@@ -63,7 +63,7 @@ Telegram adapter ---------+  (injected at runtime, never imported by coordinator
 
 `packages/coordinator` has no compile-time dependency on `transport-telegram`. A transport adapter implements `CoordinationTransport`; a wire-format adapter implements `WorkOrderCodec`. The Telegram package supplies both reference implementations.
 
-The generic adapter contract uses `room_id`. The older `topic_id` field remains in persisted v0.1 protocol structures for compatibility and is populated from the generic room ID until the stable protocol migration is complete.
+The stable 0.1 public contract uses `room_id`. Telegram topic/thread IDs are adapter-local and are mapped to/from `room_id`; they are not core protocol fields.
 
 ## Manager adapter boundary
 
@@ -71,6 +71,6 @@ The manager framework is not part of the coordinator core. `ManagerAdapter` live
 
 The Hermes reference adapter does not import private Consultant coordination code. A deployment injects framework-specific `prepareTask` and `reviewDelivery` operations. Authentication, prompts, sessions, memory, model configuration, and private context remain behind that deployment boundary.
 
-## v0.3 adapter architecture
+## Adapter architecture
 
 The v0.3 boundary extraction is complete: the coordinator is transport-neutral, manager integration is expressed through `ManagerAdapter`, worker process lifetime is delegated to `WorkerProcessManager`, and remote isolation is expressed through `SandboxBackend`. Telegram, Hermes, Pi, and Gondolin are reference adapters rather than core dependencies.
