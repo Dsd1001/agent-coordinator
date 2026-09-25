@@ -25,7 +25,7 @@ The public project will not contain production credentials, chat IDs, historical
 
 ## Status
 
-Public early-stage project with v0.1/v0.2 complete and v0.3 adapter work in progress. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
+Public early-stage project with the v0.1, v0.2, and v0.3 roadmap milestones complete. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
 
 ## Current capabilities
 
@@ -36,6 +36,7 @@ The repository contains executable TypeScript for:
 - SHA-256 verification for workspace-scoped delivery artifacts
 - framework-neutral manager preparation/review contracts with explicit review evidence
 - clean Hermes manager adapter through injected framework operations
+- replaceable fail-closed sandbox backend with a clean Gondolin reference boundary
 - transport-neutral coordinator ports for rooms/messages and work-order codecs
 - Telegram forum topic creation, sending, and closing as a reference adapter
 - coordinator/administrator sender allowlists based on immutable user IDs

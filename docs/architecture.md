@@ -70,3 +70,7 @@ The generic adapter contract uses `room_id`. The older `topic_id` field remains 
 The manager framework is not part of the coordinator core. `ManagerAdapter` lives in the protocol layer and carries stable task/execution identity through preparation and review. A review request includes explicit delivery-verification evidence; a review result includes auditable review evidence plus one of `accept`, `rework`, `resume`, or `cancel`.
 
 The Hermes reference adapter does not import private Consultant coordination code. A deployment injects framework-specific `prepareTask` and `reviewDelivery` operations. Authentication, prompts, sessions, memory, model configuration, and private context remain behind that deployment boundary.
+
+## v0.3 adapter architecture
+
+The v0.3 boundary extraction is complete: the coordinator is transport-neutral, manager integration is expressed through `ManagerAdapter`, worker process lifetime is delegated to `WorkerProcessManager`, and remote isolation is expressed through `SandboxBackend`. Telegram, Hermes, Pi, and Gondolin are reference adapters rather than core dependencies.

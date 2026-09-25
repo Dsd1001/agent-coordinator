@@ -17,14 +17,14 @@
 - [x] [#3](https://github.com/Dsd1001/agent-coordinator/issues/3) supervisor health/backoff metrics
 - [x] [#4](https://github.com/Dsd1001/agent-coordinator/issues/4) recovery/reconciliation tooling
 
-## v0.3 - adapter architecture
+## v0.3 - adapter architecture — complete
 
-- [ ] [#10](https://github.com/Dsd1001/agent-coordinator/issues/10) decouple coordinator core from Telegram transport and wire format
-- [ ] [#11](https://github.com/Dsd1001/agent-coordinator/issues/11) define a replaceable fail-closed sandbox backend
-- [ ] [#12](https://github.com/Dsd1001/agent-coordinator/issues/12) implement a clean Hermes manager adapter
+- [x] [#10](https://github.com/Dsd1001/agent-coordinator/issues/10) decouple coordinator core from Telegram transport and wire format
+- [x] [#11](https://github.com/Dsd1001/agent-coordinator/issues/11) define a replaceable fail-closed sandbox backend
+- [x] [#12](https://github.com/Dsd1001/agent-coordinator/issues/12) implement a clean Hermes manager adapter
 - [x] replaceable worker process manager boundary (`WorkerProcessManager`)
 
-The existing Pi worker remains the reference worker adapter. Once #10 and #12 land, Hermes + Pi + Telegram will be reference adapters around a transport/framework-neutral coordination core rather than dependencies of that core.
+Hermes, Pi, Telegram, and Gondolin are now reference adapters around transport/framework-neutral coordination, worker-process, and sandbox contracts. None of them is required by the coordinator core.
 
 ## v1.0
 
