@@ -19,3 +19,9 @@ A remotely dispatched worker must not fall back to host `read`, `write`, `edit`,
 ## Telegram reference mapping
 
 A newly prepared task creates one forum topic. The topic/thread ID becomes a routing namespace for a worker conversation. Rework/resume creates a new execution ID while retaining the task/topic relationship.
+
+## Supervisor health
+
+Expose reliability state through the transport/runtime-neutral `SupervisorHealthTracker`. Operators should be able to inspect the last successful poll, consecutive poll failures, effective retry delay, and per-worker cold-start retry state without reading process logs.
+
+The health sink must not contain bot/model credentials, provider configuration, raw transport messages, prompts, or exception text. Use stable opaque worker/topic identifiers only. The bundled atomic JSON sink writes private mode-0600 snapshots; deployments may replace it with a metrics/backend adapter.

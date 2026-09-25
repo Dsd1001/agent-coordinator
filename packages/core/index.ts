@@ -110,3 +110,16 @@ export {
   type ArtifactVerificationResult,
   type DeliveryAcceptanceReport
 } from "./artifact-verification.js";
+
+export {
+  AtomicJsonFileHealthSink,
+  SupervisorHealthTracker,
+  boundedExponentialBackoffMs,
+  effectiveRetryDelayMs,
+  type BackoffPolicy,
+  type PollHealth,
+  type SupervisorHealthSink,
+  type SupervisorHealthSnapshot,
+  type SupervisorHealthTrackerOptions,
+  type WorkerSpawnHealth
+} from "./supervisor-health.js";
