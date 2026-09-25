@@ -44,3 +44,9 @@ Default bounded exponential backoff mirrors the reference deployment:
 A successful poll resets the poll failure counter and clears poll retry fields. A successful worker start resets that worker's failure counter and clears its retry fields. Overall state is `degraded` while either the poller or any tracked worker has unresolved failures.
 
 `AtomicJsonFileHealthSink` writes a mode-0600 temporary file in the destination directory and atomically renames it into place. Custom sinks can implement the same `SupervisorHealthSink` interface for metrics systems or platform-specific stores.
+
+## Recovery and reconciliation
+
+`reconcileTask()` is the operator-facing library entry point for recovering durable coordination state after crashes or ambiguous network outcomes. It consumes read-only transport/worker observations and can append confirmed receipts, worker starts, deliveries, and topic closures. Unknown, absent, or stale evidence is recorded as an idempotent `reconciliation.recorded` audit event and returned as a manual action.
+
+The reconciliation API deliberately has no send/start/close capability, so an ambiguous external side effect cannot be repeated by the recovery engine. See `docs/recovery.md`.

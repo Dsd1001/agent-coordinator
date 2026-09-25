@@ -19,6 +19,7 @@ The manager and worker belong to different trust zones.
 - Secrets never belong in repository config, task payloads, logs, examples, or fixtures.
 - Supervisor health snapshots contain counters/timestamps and stable identifiers only; raw errors, transport payloads, prompts, credentials, and provider configuration are excluded.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
+- Recovery observers are read-only by contract; reconciliation may record positively observed outcomes but cannot send messages, start workers, or close topics.
 
 ## Reporting
 

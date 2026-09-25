@@ -14,7 +14,8 @@ export type CoordinationEventType =
   | "review.resume"
   | "review.accepted"
   | "task.cancelled"
-  | "topic.closed";
+  | "topic.closed"
+  | "reconciliation.recorded";
 
 export interface CoordinationEvent {
   seq: number;
@@ -123,3 +124,16 @@ export {
   type SupervisorHealthTrackerOptions,
   type WorkerSpawnHealth
 } from "./supervisor-health.js";
+
+export {
+  reconcileTask,
+  type DispatchObservation,
+  type ReconciliationObservers,
+  type ReconciliationOptions,
+  type ReconciliationReport,
+  type ReconciliationTarget,
+  type ReconciliationTransportObserver,
+  type ReconciliationWorkerObserver,
+  type TopicObservation,
+  type WorkerObservation
+} from "./reconciliation.js";
