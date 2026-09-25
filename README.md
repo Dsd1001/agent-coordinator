@@ -29,7 +29,7 @@ Public early-stage v0.1. The repository contains a clean implementation of the p
 
 The staging tree now contains executable TypeScript for:
 
-- task lifecycle transitions and an append-only in-memory event ledger
+- task lifecycle transitions with in-memory and SQLite WAL event ledgers
 - task/execution/channel/topic/worker delivery identity verification
 - Telegram forum topic creation, sending, and closing
 - coordinator/administrator sender allowlists based on immutable user IDs

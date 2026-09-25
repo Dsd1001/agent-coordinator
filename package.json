@@ -13,6 +13,7 @@
     "release-check": "sh scripts/release-check.sh"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "typescript": "^5.9.2"
   },
   "license": "Apache-2.0",
@@ -23,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/Dsd1001/agent-coordinator/issues"
   },
-  "homepage": "https://github.com/Dsd1001/agent-coordinator#readme"
+  "homepage": "https://github.com/Dsd1001/agent-coordinator#readme",
+  "engines": {
+    "node": ">=22.13.0"
+  }
 }
