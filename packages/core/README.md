@@ -24,3 +24,9 @@ ledger.close();
 ```
 
 The implementation rejects database schema versions newer than it understands instead of attempting a destructive downgrade.
+
+## Delivery artifact verification
+
+`verifyArtifactRefs()` verifies workspace-relative regular files against declared SHA-256 digests. Manifest validation rejects traversal, absolute/Windows-style paths, backslash separators, malformed digests, and duplicate paths before file I/O. Symlink components are rejected, files are opened with `O_NOFOLLOW`, and file identity is checked before and after hashing.
+
+`verifyDeliveryForAcceptance()` first enforces task/execution/channel/topic/worker identity, then requires a `delivered` status, all worker-declared checks to pass, and all declared artifacts to verify. `assertDeliveryReadyForAcceptance()` provides the fail-fast form for review pipelines.

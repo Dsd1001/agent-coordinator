@@ -100,3 +100,13 @@ export function projectTask(events: readonly CoordinationEvent[], taskId: string
 }
 
 export { SqliteEventLedger, type SqliteEventLedgerOptions } from "./sqlite-ledger.js";
+
+export {
+  assertDeliveryReadyForAcceptance,
+  validateArtifactRefs,
+  verifyArtifactRefs,
+  verifyDeliveryForAcceptance,
+  type ArtifactVerificationReport,
+  type ArtifactVerificationResult,
+  type DeliveryAcceptanceReport
+} from "./artifact-verification.js";

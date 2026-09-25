@@ -31,6 +31,7 @@ The staging tree now contains executable TypeScript for:
 
 - task lifecycle transitions with in-memory and SQLite WAL event ledgers
 - task/execution/channel/topic/worker delivery identity verification
+- SHA-256 verification for workspace-scoped delivery artifacts
 - Telegram forum topic creation, sending, and closing
 - coordinator/administrator sender allowlists based on immutable user IDs
 - the reference `/task` dispatch and `deliver|blocked|failed` reply protocol
