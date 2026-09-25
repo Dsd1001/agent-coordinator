@@ -1,0 +1,15 @@
+{
+  "manager": {"adapter": "hermes"},
+  "transport": {
+    "adapter": "telegram",
+    "chatId": "<forum-chat-id>",
+    "coordinatorBotUserId": "<coordinator-bot-user-id>",
+    "workerBotUserId": "<worker-bot-user-id>"
+  },
+  "worker": {
+    "adapter": "pi",
+    "runAsUser": "agent-worker",
+    "sandbox": "gondolin",
+    "failClosed": true
+  }
+}

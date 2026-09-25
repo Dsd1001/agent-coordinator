@@ -1,0 +1,27 @@
+{
+  "name": "agent-coordinator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Manager/worker agent coordination with task-scoped execution, Telegram topics, and isolated Pi workers",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "release-check": "sh scripts/release-check.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dsd1001/agent-coordinator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Dsd1001/agent-coordinator/issues"
+  },
+  "homepage": "https://github.com/Dsd1001/agent-coordinator#readme"
+}

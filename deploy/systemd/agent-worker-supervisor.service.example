@@ -1,0 +1,27 @@
+[Unit]
+Description=Agent Coordinator worker supervisor
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=agent-worker
+Group=agent-worker
+SupplementaryGroups=kvm
+WorkingDirectory=/var/lib/agent-coordinator/worker
+Environment=HOME=/var/lib/agent-coordinator/worker
+EnvironmentFile=-/etc/agent-coordinator/worker.env
+ExecStart=/usr/bin/node /opt/agent-coordinator/worker-supervisor.js
+Restart=always
+RestartSec=10s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=no
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
