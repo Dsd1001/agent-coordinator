@@ -1,4 +1,4 @@
-import type { EventLedger } from "../core/index.js";
+import { projectTask, type EventLedger } from "../core/index.js";
 import {
   assertDeliveryIdentity,
   type CoordinationMessage,
@@ -278,6 +278,10 @@ export class TaskCoordinator {
     review: ManagerReviewResult
   ): Promise<DispatchReceipt | undefined> {
     assertReviewForReceipt(receipt, review);
+    const current = projectTask(this.#ledger.list(receipt.task.task_id), receipt.task.task_id);
+    if (!current || current.execution_id !== receipt.task.execution_id || current.status !== "delivered") {
+      throw new Error("manager review requires the current execution to be delivered");
+    }
     if (review.verdict === "accept") {
       await this.accept(receipt, review.summary, review.evidence);
       return undefined;

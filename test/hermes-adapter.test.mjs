@@ -173,6 +173,21 @@ test("Hermes cancel decision has no rework fields", async () => {
   assert.equal(result.next_execution_id, undefined);
 });
 
+test("Hermes adapter turns malformed runtime task input into a structured invalid_request", async () => {
+  let calls = 0;
+  const adapter = new HermesManagerAdapter(client({
+    async prepareTask() {
+      calls += 1;
+      throw new Error("must not run");
+    }
+  }));
+  await assert.rejects(
+    () => adapter.prepareTask({ ...task(), title: null }),
+    (error) => error instanceof HermesAdapterError && error.code === "invalid_request"
+  );
+  assert.equal(calls, 0);
+});
+
 test("Hermes adapter rejects unverified or non-delivered work before calling the client", async () => {
   let reviewCalls = 0;
   const adapter = new HermesManagerAdapter(client({
@@ -273,7 +288,7 @@ test("Hermes client exception details are not leaked through adapter errors", as
     (error) =>
       error instanceof HermesAdapterError &&
       error.code === "client_failure" &&
-      error.retryable === true &&
+      error.retryable === false &&
       !error.message.includes(privateValue) &&
       !("cause" in error)
   );
@@ -441,4 +456,54 @@ test("Coordinator applies cancel and closes the room with review evidence", asyn
   assert.equal(transport.closed.length, 1);
   const event = ledger.list("task-1").find((item) => item.type === "task.cancelled");
   assert.equal(event.data.review_evidence.review_id, "review-cancel");
+});
+
+
+test("Coordinator refuses manager review before the current execution is delivered", async () => {
+  const ledger = new MemoryEventLedger();
+  const transport = new FakeTransport();
+  const coordinator = new TaskCoordinator(ledger, transport, new JsonCodec(), { worker_sender_id: "worker-uid" });
+  const receipt = await coordinator.dispatch(task());
+  await assert.rejects(
+    () => coordinator.applyManagerReview(receipt, {
+      task_id: "task-1",
+      execution_id: "exec-1",
+      verdict: "accept",
+      summary: "premature",
+      evidence: { review_id: "review-premature", reviewed_at: "2026-01-01T00:00:30.000Z", source: "test" }
+    }),
+    /current execution to be delivered/
+  );
+  assert.equal(projectTask(ledger.list(), "task-1")?.status, "dispatched");
+  assert.equal(transport.closed.length, 0);
+});
+
+test("Coordinator rejects stale review and accept rework fields before side effects", async () => {
+  const ledger = new MemoryEventLedger();
+  const transport = new FakeTransport();
+  const coordinator = new TaskCoordinator(ledger, transport, new JsonCodec(), { worker_sender_id: "worker-uid" });
+  const receipt = await coordinator.dispatch(task());
+  coordinator.observeWorkerReply(receipt, {
+    message_id: "delivery-review-gate",
+    channel_id: "channel-1",
+    room_id: "room-1",
+    sender_id: "worker-uid",
+    text: workerReply("exec-1", "result")
+  });
+  const evidence = { review_id: "review-gate", reviewed_at: "2026-01-01T00:03:00.000Z", source: "test" };
+  await assert.rejects(
+    () => coordinator.applyManagerReview(receipt, {
+      task_id: "task-1", execution_id: "exec-old", verdict: "accept", summary: "stale", evidence
+    }),
+    /execution_id mismatch/
+  );
+  await assert.rejects(
+    () => coordinator.applyManagerReview(receipt, {
+      task_id: "task-1", execution_id: "exec-1", verdict: "accept", summary: "bad fields",
+      requirements: ["not allowed"], evidence
+    }),
+    /must not include rework fields/
+  );
+  assert.equal(projectTask(ledger.list(), "task-1")?.status, "delivered");
+  assert.equal(transport.closed.length, 0);
 });
