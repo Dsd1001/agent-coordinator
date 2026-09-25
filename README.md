@@ -11,7 +11,7 @@ The reference architecture keeps a privileged manager agent in control of task p
 - **Manager**: creates tasks, defines acceptance criteria, reviews deliveries, and decides accept/rework/resume/cancel.
 - **Task**: stable identity for one unit of work.
 - **Execution**: one attempt of a task. Rework/resume creates a new execution identity.
-- **Topic**: optional human-visible collaboration namespace. In the Telegram adapter, one task maps to one forum topic.
+- **Room**: transport-neutral human-visible collaboration namespace. In the Telegram adapter, one task room maps to one forum topic.
 - **Worker**: isolated execution runtime bound to a task topic and current execution.
 - **Delivery**: structured worker handoff containing summary, artifacts, checks, and limitations.
 
@@ -23,16 +23,17 @@ The public project will not contain production credentials, chat IDs, historical
 
 ## Status
 
-Public early-stage v0.1. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
+Public early-stage project with v0.1/v0.2 complete and v0.3 adapter work in progress. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
 
-## Current v0.1 staging capabilities
+## Current capabilities
 
-The staging tree now contains executable TypeScript for:
+The repository contains executable TypeScript for:
 
 - task lifecycle transitions with in-memory and SQLite WAL event ledgers
-- task/execution/channel/topic/worker delivery identity verification
+- task/execution/channel/room/worker delivery identity verification
 - SHA-256 verification for workspace-scoped delivery artifacts
-- Telegram forum topic creation, sending, and closing
+- transport-neutral coordinator ports for rooms/messages and work-order codecs
+- Telegram forum topic creation, sending, and closing as a reference adapter
 - coordinator/administrator sender allowlists based on immutable user IDs
 - the reference `/task` dispatch and `deliver|blocked|failed` reply protocol
 - a minimal coordinator that runs task -> topic -> dispatch -> delivery -> accept

@@ -4,23 +4,68 @@
   "title": "TaskEnvelope",
   "type": "object",
   "additionalProperties": false,
-  "required": ["task_id", "execution_id", "title", "brief", "acceptance"],
+  "required": [
+    "task_id",
+    "execution_id",
+    "title",
+    "brief",
+    "acceptance"
+  ],
   "properties": {
-    "task_id": {"type": "string", "minLength": 1},
-    "execution_id": {"type": "string", "minLength": 1},
-    "title": {"type": "string", "minLength": 1},
-    "brief": {"type": "string", "minLength": 1},
-    "acceptance": {"type": "array", "items": {"type": "string"}},
-    "topic_id": {"type": ["string", "null"]},
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "brief": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "room_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "topic_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "inputs": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "sha256"],
+        "required": [
+          "path",
+          "sha256"
+        ],
         "properties": {
-          "path": {"type": "string"},
-          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "description": {
+            "type": "string"
+          }
         }
       }
     }

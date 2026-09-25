@@ -22,8 +22,43 @@ export interface TaskEnvelope {
   title: string;
   brief: string;
   acceptance: string[];
+  /** Transport-neutral collaboration namespace assigned by the coordinator. */
+  room_id?: string | null;
+  /** @deprecated Telegram-first v0.1 compatibility alias for room_id. */
   topic_id?: string | null;
   inputs?: ArtifactRef[];
+}
+
+export interface CoordinationRoom {
+  channel_id: string;
+  room_id: string;
+}
+
+export interface CoordinationMessage {
+  message_id: string;
+  channel_id: string;
+  room_id?: string;
+  sender_id: string;
+  text: string;
+}
+
+export interface CoordinationTransport {
+  createRoom(title: string): Promise<CoordinationRoom>;
+  send(room: CoordinationRoom, text: string): Promise<{ message_id: string }>;
+  closeRoom(room: CoordinationRoom): Promise<void>;
+}
+
+export interface WorkerProtocolReply {
+  kind: "deliver" | "blocked" | "failed";
+  task_id: string;
+  execution_id: string;
+  summary: string;
+}
+
+export interface WorkOrderCodec {
+  roomTitle(task: TaskEnvelope): string;
+  renderTask(task: TaskEnvelope): string;
+  parseWorkerReply(text: string): WorkerProtocolReply | undefined;
 }
 
 export interface DeliveryCheck {

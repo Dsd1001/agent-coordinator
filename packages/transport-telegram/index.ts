@@ -1,8 +1,19 @@
+import type {
+  CoordinationMessage,
+  CoordinationRoom,
+  CoordinationTransport,
+  TaskEnvelope,
+  WorkOrderCodec,
+  WorkerProtocolReply
+} from "../protocol/src/index.js";
+
+/** Telegram-specific compatibility shape for a forum topic. */
 export interface TaskRoom {
   channel_id: string;
   topic_id: string;
 }
 
+/** Telegram-specific compatibility shape for an inbound forum message. */
 export interface TransportMessage {
   message_id: string;
   channel_id: string;
@@ -16,9 +27,10 @@ export interface SenderPolicy {
   admin_ids?: readonly string[];
 }
 
+/** Legacy Telegram-specific transport contract. Prefer CoordinationTransport for new integrations. */
 export interface TransportAdapter {
   createTaskRoom(title: string): Promise<TaskRoom>;
-  send(room: TaskRoom, text: string): Promise<{ message_id: string }>;
+  send(room: TaskRoom | CoordinationRoom, text: string): Promise<{ message_id: string }>;
   closeTaskRoom(room: TaskRoom): Promise<void>;
 }
 
@@ -59,12 +71,7 @@ export interface TelegramTaskDispatch {
   inputs?: readonly DispatchArtifact[];
 }
 
-export interface ParsedWorkerReply {
-  kind: "deliver" | "blocked" | "failed";
-  task_id: string;
-  execution_id: string;
-  summary: string;
-}
+export interface ParsedWorkerReply extends WorkerProtocolReply {}
 
 function normalizeBotUsername(username: string): string {
   const value = username.trim().replace(/^@/, "");
@@ -134,6 +141,33 @@ export function parseWorkerReply(text: string, coordinatorBotUsername?: string):
   };
 }
 
+export class TelegramWorkOrderCodec implements WorkOrderCodec {
+  readonly #workerBotUsername: string;
+  readonly #coordinatorBotUsername: string;
+  readonly #maxTitleLength: number;
+
+  constructor(workerBotUsername: string, coordinatorBotUsername: string, maxTitleLength = 120) {
+    this.#workerBotUsername = normalizeBotUsername(workerBotUsername);
+    this.#coordinatorBotUsername = normalizeBotUsername(coordinatorBotUsername);
+    if (!Number.isInteger(maxTitleLength) || maxTitleLength < 16 || maxTitleLength > 128) {
+      throw new Error("maxTitleLength must be an integer between 16 and 128");
+    }
+    this.#maxTitleLength = maxTitleLength;
+  }
+
+  roomTitle(task: TaskEnvelope): string {
+    return taskTopicTitle(task.title, task.task_id, this.#maxTitleLength);
+  }
+
+  renderTask(task: TaskEnvelope): string {
+    return renderTaskDispatch(task, this.#workerBotUsername, this.#coordinatorBotUsername);
+  }
+
+  parseWorkerReply(text: string): ParsedWorkerReply | undefined {
+    return parseWorkerReply(text, this.#coordinatorBotUsername);
+  }
+}
+
 interface TelegramApiResponse<T> {
   ok: boolean;
   result?: T;
@@ -152,7 +186,23 @@ export type TelegramFetch = (
   init: { method: string; headers: Record<string, string>; body: string }
 ) => Promise<MinimalFetchResponse>;
 
-export class TelegramForumTransport implements TransportAdapter {
+function topicIdFromRoom(room: TaskRoom | CoordinationRoom): string {
+  const topicId = "topic_id" in room ? room.topic_id : room.room_id;
+  if (!/^\d+$/.test(topicId)) throw new Error("Telegram room_id/topic_id must be numeric");
+  return topicId;
+}
+
+export function toCoordinationMessage(message: TransportMessage): CoordinationMessage {
+  return {
+    message_id: message.message_id,
+    channel_id: message.channel_id,
+    room_id: message.topic_id,
+    sender_id: message.sender_id,
+    text: message.text
+  };
+}
+
+export class TelegramForumTransport implements CoordinationTransport, TransportAdapter {
   readonly #token: string;
   readonly #chatId: string;
   readonly #fetch: TelegramFetch;
@@ -181,6 +231,11 @@ export class TelegramForumTransport implements TransportAdapter {
     return decoded.result;
   }
 
+  async createRoom(title: string): Promise<CoordinationRoom> {
+    const room = await this.createTaskRoom(title);
+    return { channel_id: room.channel_id, room_id: room.topic_id };
+  }
+
   async createTaskRoom(title: string): Promise<TaskRoom> {
     const result = await this.#call<{ message_thread_id: number }>("createForumTopic", {
       chat_id: this.#chatId,
@@ -189,21 +244,29 @@ export class TelegramForumTransport implements TransportAdapter {
     return { channel_id: this.#chatId, topic_id: String(result.message_thread_id) };
   }
 
-  async send(room: TaskRoom, text: string): Promise<{ message_id: string }> {
+  async send(room: TaskRoom | CoordinationRoom, text: string): Promise<{ message_id: string }> {
     if (room.channel_id !== this.#chatId) throw new Error("task room belongs to a different Telegram chat");
     const result = await this.#call<{ message_id: number }>("sendMessage", {
       chat_id: room.channel_id,
-      message_thread_id: Number(room.topic_id),
+      message_thread_id: Number(topicIdFromRoom(room)),
       text
     });
     return { message_id: String(result.message_id) };
   }
 
+  async closeRoom(room: CoordinationRoom): Promise<void> {
+    await this.#close(room);
+  }
+
   async closeTaskRoom(room: TaskRoom): Promise<void> {
+    await this.#close(room);
+  }
+
+  async #close(room: TaskRoom | CoordinationRoom): Promise<void> {
     if (room.channel_id !== this.#chatId) throw new Error("task room belongs to a different Telegram chat");
     await this.#call<boolean>("closeForumTopic", {
       chat_id: room.channel_id,
-      message_thread_id: Number(room.topic_id)
+      message_thread_id: Number(topicIdFromRoom(room))
     });
   }
 }

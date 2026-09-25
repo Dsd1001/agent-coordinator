@@ -34,3 +34,37 @@ test("Telegram API errors surface retry_after without exposing the token in the 
     (error) => error instanceof Error && /retry_after=9/.test(error.message) && !error.message.includes("sensitive-example-token")
   );
 });
+
+
+test("Telegram forum transport also implements the generic room contract", async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url, body });
+    if (url.endsWith("/createForumTopic")) return response({ ok: true, result: { message_thread_id: 91 } });
+    if (url.endsWith("/sendMessage")) return response({ ok: true, result: { message_id: 92 } });
+    if (url.endsWith("/closeForumTopic")) return response({ ok: true, result: true });
+    return response({ ok: false, description: "unexpected" }, 400);
+  };
+  const transport = new TelegramForumTransport("example-token", "example-chat", fakeFetch);
+  const room = await transport.createRoom("Generic room");
+  assert.deepEqual(room, { channel_id: "example-chat", room_id: "91" });
+  assert.deepEqual(await transport.send(room, "work order"), { message_id: "92" });
+  await transport.closeRoom(room);
+  assert.equal(calls[1].body.message_thread_id, 91);
+  assert.equal(calls[2].body.message_thread_id, 91);
+});
+
+
+test("Telegram generic transport rejects a non-numeric room id before API send", async () => {
+  let called = false;
+  const transport = new TelegramForumTransport("example-token", "example-chat", async () => {
+    called = true;
+    return response({ ok: true, result: { message_id: 1 } });
+  });
+  await assert.rejects(
+    () => transport.send({ channel_id: "example-chat", room_id: "not-a-topic" }, "work"),
+    /must be numeric/
+  );
+  assert.equal(called, false);
+});
