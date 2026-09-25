@@ -27,7 +27,12 @@ test("topic titles retain task identity within a length bound", () => {
   assert.ok(value.length <= 36);
 });
 
-import { parseWorkerReply, renderTaskDispatch } from "../dist/packages/transport-telegram/index.js";
+import {
+  parseWorkerReply,
+  renderTaskDispatch,
+  TelegramWorkOrderCodec,
+  toCoordinationMessage
+} from "../dist/packages/transport-telegram/index.js";
 
 test("task dispatch renders stable task and execution identity", () => {
   const text = renderTaskDispatch(
@@ -80,4 +85,42 @@ test("worker cold-start requires coordinator uid, topic, and explicit worker add
   assert.equal(shouldColdStartWorker({ ...base, sender_id: "admin-uid" }, policy, "Worker_Bot"), false);
   assert.equal(shouldColdStartWorker({ ...base, text: "ordinary topic message" }, policy, "Worker_Bot"), false);
   assert.equal(shouldColdStartWorker({ ...base, topic_id: undefined }, policy, "Worker_Bot"), false);
+});
+
+
+test("Telegram codec implements the generic work-order codec boundary", () => {
+  const codec = new TelegramWorkOrderCodec("Worker_Bot", "Coordinator_Bot", 64);
+  const task = {
+    task_id: "t-codec",
+    execution_id: "e-codec",
+    title: "Codec task",
+    brief: "Do it.",
+    acceptance: ["Verified"],
+    inputs: []
+  };
+  assert.ok(codec.roomTitle(task).endsWith("[t-codec]"));
+  assert.match(codec.renderTask(task), /^\/task@Worker_Bot/m);
+  assert.deepEqual(
+    codec.parseWorkerReply("@Coordinator_Bot deliver t-codec done execution: e-codec"),
+    { kind: "deliver", task_id: "t-codec", execution_id: "e-codec", summary: "done" }
+  );
+});
+
+test("Telegram inbound messages adapt topic_id to generic room_id", () => {
+  assert.deepEqual(
+    toCoordinationMessage({
+      message_id: "m1",
+      channel_id: "chat-1",
+      topic_id: "77",
+      sender_id: "worker-1",
+      text: "hello"
+    }),
+    {
+      message_id: "m1",
+      channel_id: "chat-1",
+      room_id: "77",
+      sender_id: "worker-1",
+      text: "hello"
+    }
+  );
 });
