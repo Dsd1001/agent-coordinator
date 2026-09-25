@@ -15,7 +15,9 @@ Every request and response carries `task_id` and `execution_id`. The adapter rej
 
 ## Error boundary
 
-`HermesAdapterError` exposes only structured operation/code/task/execution/retryability fields. Errors thrown by the injected Hermes client are intentionally not copied into the public error message or `cause`, so credentials, prompts, memories, or other private context in upstream exceptions cannot leak through this adapter.
+`HermesAdapterError` exposes only structured operation/code/task/execution/retryability fields. Errors thrown by the injected Hermes client are intentionally not copied into the public error message or `cause`, so credentials, prompts, memories, or other private context in upstream exceptions cannot leak through this adapter. Unknown client failures are marked `retryable: false`: a lost response can hide a successful remote side effect, so callers should reconcile by task/execution identity before deciding whether to retry.
+
+A generic client failure is reported with `retryable: false`: a lost response may hide a successful remote side effect, so deployments should reconcile by task/execution identity instead of blindly repeating manager operations.
 
 ## Real deployment responsibility
 

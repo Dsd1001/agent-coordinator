@@ -123,12 +123,23 @@ function cleanRequirements(values?: string[]): string[] | undefined {
 }
 
 function assertTask(task: TaskEnvelope, operation: HermesAdapterOperation): void {
-  if (!validId(task.task_id) || !validId(task.execution_id) || !task.title.trim() || !task.brief.trim()) {
+  const taskId = typeof task?.task_id === "string" ? task.task_id : "invalid-task";
+  const executionId = typeof task?.execution_id === "string" ? task.execution_id : "invalid-execution";
+  if (
+    typeof task?.task_id !== "string" ||
+    typeof task?.execution_id !== "string" ||
+    typeof task?.title !== "string" ||
+    typeof task?.brief !== "string" ||
+    !validId(task.task_id) ||
+    !validId(task.execution_id) ||
+    !task.title.trim() ||
+    !task.brief.trim()
+  ) {
     throw new HermesAdapterError({
       code: "invalid_request",
       operation,
-      task_id: task.task_id,
-      execution_id: task.execution_id
+      task_id: taskId,
+      execution_id: executionId
     });
   }
   if (!Array.isArray(task.acceptance) || task.acceptance.some((item) => typeof item !== "string" || !item.trim())) {
@@ -186,7 +197,9 @@ function clientFailure(operation: HermesAdapterOperation, task: TaskEnvelope): H
     operation,
     task_id: task.task_id,
     execution_id: task.execution_id,
-    retryable: true
+    // A lost response may hide a successful remote side effect. Automatic
+    // retry is unsafe until the deployment reconciles by task/execution ID.
+    retryable: false
   });
 }
 
@@ -215,7 +228,9 @@ export class HermesManagerAdapter implements ManagerAdapter {
     if (
       !isRecord(response) ||
       typeof response.task_id !== "string" ||
-      typeof response.execution_id !== "string"
+      typeof response.execution_id !== "string" ||
+      !validId(response.task_id) ||
+      !validId(response.execution_id)
     ) {
       throw invalidResponse("prepare_task", task);
     }
@@ -271,7 +286,9 @@ export class HermesManagerAdapter implements ManagerAdapter {
     if (
       !isRecord(response) ||
       typeof response.task_id !== "string" ||
-      typeof response.execution_id !== "string"
+      typeof response.execution_id !== "string" ||
+      !validId(response.task_id) ||
+      !validId(response.execution_id)
     ) {
       throw invalidResponse("review_delivery", request.task);
     }

@@ -21,6 +21,9 @@ The manager and worker belong to different trust zones.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
 - Recovery observers are read-only by contract; reconciliation may record positively observed outcomes but cannot send messages, start workers, or close topics.
 - Manager review accepts only a delivery explicitly marked identity/artifact verified, and the Hermes adapter rejects task/execution mismatches.
+- The coordinator applies manager review only when its durable projection still shows that exact execution as `delivered`; premature or stale review results cannot advance task state.
+- Unknown Hermes client failures are not declared safe to retry automatically because the remote operation may already have completed.
+- The coordinator applies a manager review only to the current execution while its durable task projection is `delivered`; stale or premature reviews cannot trigger accept/rework/resume/cancel side effects.
 - Hermes client exceptions are converted to structured adapter errors without copying upstream exception text or private context.
 
 ## Reporting
