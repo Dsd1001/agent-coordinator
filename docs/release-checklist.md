@@ -13,7 +13,8 @@
 - [x] Select/approve the top-level project license: Apache-2.0.
 - [x] Exclude private/local source whose redistribution provenance is not established.
 - [x] Review the staged first commit diff and run `git diff --cached --check`.
-- [ ] Create the GitHub repository and push only after all items above are satisfied.
+- [x] Create the public GitHub repository: `Dsd1001/agent-coordinator`.
+- [x] Push `main` and verify the GitHub Actions CI run succeeds.
 
 ## Never publish
 

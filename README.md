@@ -1,5 +1,7 @@
 # Agent Coordinator
 
+[![CI](https://github.com/Dsd1001/agent-coordinator/actions/workflows/ci.yml/badge.svg)](https://github.com/Dsd1001/agent-coordinator/actions/workflows/ci.yml)
+
 An open-source manager/worker agent coordination framework.
 
 The reference architecture keeps a privileged manager agent in control of task planning and review while delegating execution to short-lived, isolated worker agents. Telegram forum topics are used as human-visible task rooms in the first adapter, but the coordination protocol is transport-independent.
@@ -21,7 +23,7 @@ The public project will not contain production credentials, chat IDs, historical
 
 ## Status
 
-Early-stage v0.1. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
+Public early-stage v0.1. The repository contains a clean implementation of the protocol and security invariants extracted from a running reference architecture; production state and private coordination source are intentionally excluded.
 
 ## Current v0.1 staging capabilities
 
