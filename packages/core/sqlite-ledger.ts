@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { AppendEventInput, CoordinationEvent, EventLedger } from "./index.js";
 
 const SCHEMA_VERSION = 1;
+const BUSY_RETRY_SLEEP = new Int32Array(new SharedArrayBuffer(4));
 
 interface EventRow {
   seq: number;
@@ -50,8 +51,14 @@ function parseRow(row: EventRow): CoordinationEvent {
   };
 }
 
+function isSqliteBusy(error: unknown): boolean {
+  if (error === null || typeof error !== "object") return false;
+  return (error as { errcode?: unknown }).errcode === 5;
+}
+
 export class SqliteEventLedger implements EventLedger {
   readonly #db: DatabaseSync;
+  readonly #busyTimeoutMs: number;
 
   constructor(path: string, options: SqliteEventLedgerOptions = {}) {
     if (!path.trim()) throw new Error("database path is required");
@@ -63,25 +70,49 @@ export class SqliteEventLedger implements EventLedger {
     const timeout = Math.trunc(requestedTimeout);
     const databasePath = resolve(path);
     mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 });
+    this.#busyTimeoutMs = timeout;
     this.#db = new DatabaseSync(databasePath, { timeout });
-    this.#db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA synchronous = NORMAL;
-      PRAGMA foreign_keys = ON;
-      PRAGMA trusted_schema = OFF;
-      PRAGMA busy_timeout = ${timeout};
-    `);
-    const journal = this.#db.prepare("PRAGMA journal_mode").get() as { journal_mode?: string } | undefined;
-    if (journal?.journal_mode?.toLowerCase() !== "wal") {
-      this.#db.close();
-      throw new Error(`SQLite WAL mode is required; got ${journal?.journal_mode ?? "unknown"}`);
-    }
     try {
-      this.#bootstrap();
+      this.#db.exec(`PRAGMA busy_timeout = ${timeout};`);
+      // WAL mode is persistent, but concurrent first-start processes can race
+      // while one connection changes the database header. Some SQLite builds
+      // return SQLITE_BUSY immediately for this pragma, so handle that case
+      // explicitly within the configured timeout.
+      const journal = this.#retryBusy(() =>
+        this.#db.prepare("PRAGMA journal_mode = WAL").get() as { journal_mode?: string } | undefined
+      );
+      if (journal?.journal_mode?.toLowerCase() !== "wal") {
+        throw new Error(`SQLite WAL mode is required; got ${journal?.journal_mode ?? "unknown"}`);
+      }
+      this.#db.exec(`
+        PRAGMA synchronous = NORMAL;
+        PRAGMA foreign_keys = ON;
+        PRAGMA trusted_schema = OFF;
+      `);
+      this.#retryBusy(() => this.#bootstrap());
     } catch (error) {
       if (this.#db.isOpen) this.#db.close();
       throw error;
     }
+  }
+
+  #retryBusy<T>(operation: () => T): T {
+    const deadline = Date.now() + this.#busyTimeoutMs;
+    let delayMs = 5;
+    for (;;) {
+      try {
+        return operation();
+      } catch (error) {
+        const remaining = deadline - Date.now();
+        if (!isSqliteBusy(error) || remaining <= 0) throw error;
+        Atomics.wait(BUSY_RETRY_SLEEP, 0, 0, Math.min(delayMs, remaining));
+        delayMs = Math.min(delayMs * 2, 100);
+      }
+    }
+  }
+
+  #beginImmediate(): void {
+    this.#retryBusy(() => this.#db.exec("BEGIN IMMEDIATE"));
   }
 
   #schemaVersion(): number {
@@ -100,7 +131,7 @@ export class SqliteEventLedger implements EventLedger {
     this.#assertSupportedSchema(version);
     if (version === SCHEMA_VERSION) return;
 
-    this.#db.exec("BEGIN IMMEDIATE");
+    this.#beginImmediate();
     try {
       // Another process may have initialized or migrated the database while
       // this connection was waiting for the write lock. Re-read the version
@@ -140,7 +171,7 @@ export class SqliteEventLedger implements EventLedger {
     const at = input.at ?? new Date().toISOString();
     const dataJson = input.data === undefined ? null : JSON.stringify(input.data);
 
-    this.#db.exec("BEGIN IMMEDIATE");
+    this.#beginImmediate();
     try {
       const result = this.#db
         .prepare(`
