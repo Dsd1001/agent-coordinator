@@ -98,3 +98,5 @@ export function projectTask(events: readonly CoordinationEvent[], taskId: string
     last_event_seq: relevant.at(-1)?.seq ?? 0
   };
 }
+
+export { SqliteEventLedger, type SqliteEventLedgerOptions } from "./sqlite-ledger.js";
