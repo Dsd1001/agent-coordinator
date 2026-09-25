@@ -1,3 +1,12 @@
+import {
+  acquireReadySandbox,
+  type ReadySandboxLease,
+  type SandboxBackend,
+  type SandboxReadyOptions,
+  type SandboxSpec,
+  validateSandboxSpec
+} from "../sandbox/index.js";
+
 export interface WorkerBinding {
   task_id: string;
   execution_id: string;
@@ -37,6 +46,24 @@ export function assertRemoteWorkerSandboxReady(remoteWorkerMode: boolean, sandbo
 export function canUseHostTools(remoteWorkerMode: boolean, sandboxReady: boolean): boolean {
   if (remoteWorkerMode) return false;
   return !sandboxReady;
+}
+
+
+export async function prepareRemotePiSandbox(
+  binding: WorkerBinding,
+  backend: SandboxBackend,
+  input: SandboxSpec,
+  options: SandboxReadyOptions = {}
+): Promise<ReadySandboxLease> {
+  const spec = validateSandboxSpec(input);
+  if (spec.task_id !== binding.task_id) throw new Error("sandbox task_id must match worker task_id");
+  if (spec.execution_id !== binding.execution_id) {
+    throw new Error("sandbox execution_id must match worker execution_id");
+  }
+  // Deliberately do not derive the sandbox workspace from binding.workspace: the
+  // sandbox contract accepts a logical workspace_id and guest path, never the
+  // manager/host filesystem path used by the process manager.
+  return acquireReadySandbox(backend, spec, options);
 }
 
 export interface PiWorkerRuntimeConfig {
