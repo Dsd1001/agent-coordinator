@@ -15,6 +15,7 @@ The manager and worker belong to different trust zones.
 - Worker **cold-start** is separately authorized: a forum update must come from a configured coordinator ID and explicitly address the worker bot before it may allocate a worker process. Runtime authorization remains mandatory after startup.
 - A delivery must match task ID, execution ID, topic/thread ID, and expected worker identity.
 - Input artifacts are copied into the worker workspace and hash-verified. Workers do not receive manager filesystem access.
+- Delivery artifacts are accepted only as workspace-relative regular files with valid SHA-256 bindings; traversal and symbolic-link paths are rejected before acceptance.
 - Secrets never belong in repository config, task payloads, logs, examples, or fixtures.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
 
