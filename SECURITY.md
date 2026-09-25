@@ -17,6 +17,7 @@ The manager and worker belong to different trust zones.
 - Input artifacts are copied into the worker workspace and hash-verified. Workers do not receive manager filesystem access.
 - Delivery artifacts are accepted only as workspace-relative regular files with valid SHA-256 bindings; traversal and symbolic-link paths are rejected before acceptance.
 - Secrets never belong in repository config, task payloads, logs, examples, or fixtures.
+- Supervisor health snapshots contain counters/timestamps and stable identifiers only; raw errors, transport payloads, prompts, credentials, and provider configuration are excluded.
 - Unknown network-send outcomes are not blindly retried when doing so can duplicate an external side effect.
 
 ## Reporting

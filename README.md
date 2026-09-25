@@ -38,6 +38,7 @@ The staging tree now contains executable TypeScript for:
 - a minimal coordinator that runs task -> topic -> dispatch -> delivery -> accept
 - Pi remote-worker fail-closed policy helpers
 - a hardened systemd worker-supervisor example
+- transport-neutral supervisor health snapshots with bounded retry/backoff metrics
 
 Run `npm test` and `npm run release-check` before any public push.
 
