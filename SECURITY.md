@@ -29,6 +29,10 @@ The manager and worker belong to different trust zones.
 - Delivery artifact count/byte quotas are enforced before or during verification so untrusted outputs cannot force unbounded filesystem hashing.
 - Durable history is audited before/after reconciliation; hard semantic errors fail closed before external observers are called.
 - Extensions are host-selected in-process code. Atomic registration prevents partial install, but the host remains responsible for trusting the extension module itself.
+- Progress telemetry must be bounded/redacted operational state; raw prompts, model reasoning, tool arguments, credentials, and file contents do not belong in progress snapshots.
+- Execution steering must be explicitly authorized and matched to the still-current task/execution before it reaches a worker. Steering is append-only intervention and must not silently create a new task or attempt.
+- Task annotations are side-effect-free by contract; storing an annotation must not send a worker message or allocate execution resources.
+- Result publication uses a frozen payload fingerprint. An uncertain external-send result must be inspected/reconciled before any retry; a partial result must not be represented as an accepted final result.
 
 ## Reporting
 

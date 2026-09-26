@@ -1,6 +1,6 @@
 {
   "name": "agent-coordinator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Transport-neutral manager/worker agent coordination with durable state, isolated workers, recovery, quotas, and extensions",

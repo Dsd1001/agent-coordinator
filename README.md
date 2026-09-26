@@ -4,7 +4,7 @@
 
 An open-source manager/worker agent coordination framework.
 
-**Current release: 0.1.0** · Protocol: `0.1.x` · Extension API: `0.1.x` · Node.js >= 22.13
+**Current release: 0.1.1** · Protocol: `0.1.x` · Extension API: `0.1.x` · Node.js >= 22.13
 
 The architecture keeps a manager agent in control of task planning and review while delegating execution to short-lived isolated workers. The coordination core is transport/framework neutral; Telegram, Hermes, Pi, and Gondolin are reference adapters/boundaries.
 
@@ -17,7 +17,7 @@ The architecture keeps a manager agent in control of task planning and review wh
 - **Worker**: isolated execution runtime bound to task + current execution.
 - **Delivery**: structured handoff containing summary, artifacts, checks, and limitations.
 
-## 0.1.0 capabilities
+## 0.1.x capabilities
 
 - stable versioned protocol with canonical task/execution/channel/room/worker identity
 - SQLite WAL durable event ledger
@@ -32,6 +32,9 @@ The architecture keeps a manager agent in control of task planning and review wh
 - Telegram forum transport/codec reference adapter
 - Pi worker reference adapter
 - clean injected Hermes manager adapter
+- optional progress telemetry, heartbeat, execution steering, and side-effect-free task annotation contracts
+- pluggable recovery policy and idempotent result-publisher contracts
+- bounded one-shot final-repair reference recovery policy
 
 Reference deployment mapping:
 
@@ -47,7 +50,7 @@ npm test
 npm run release-check
 ```
 
-See `docs/protocol.md`, `docs/resource-policy.md`, `docs/recovery.md`, `docs/extensions.md`, `docs/architecture.md`, and `SECURITY.md`.
+See `docs/protocol.md`, `docs/resource-policy.md`, `docs/recovery.md`, `docs/extensions.md`, `docs/runtime-extensions.md`, `docs/architecture.md`, and `SECURITY.md`.
 
 ## License
 

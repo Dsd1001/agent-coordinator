@@ -1,5 +1,5 @@
 {
-  "name": "@agent-coordinator/coordinator",
+  "name": "@agent-coordinator/recovery-bounded-final-repair",
   "version": "0.1.1",
   "private": true,
   "type": "module"

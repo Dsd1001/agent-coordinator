@@ -47,6 +47,7 @@ Manager privilege is never inherited by the worker.
 - `WorkerBackend`: start, stop, and inspect workers.
 - `SandboxBackend`: create isolated execution environment and mount workspace/shared storage.
 - `Ledger`: durable task/execution/event/artifact state.
+- Optional runtime extensions: progress sinks, current-execution steering, task annotations, recovery policy, and result publishing.
 
 ## Pi worker launch boundary
 
@@ -74,3 +75,7 @@ The Hermes reference adapter does not import private Consultant coordination cod
 ## Adapter architecture
 
 The v0.3 boundary extraction is complete: the coordinator is transport-neutral, manager integration is expressed through `ManagerAdapter`, worker process lifetime is delegated to `WorkerProcessManager`, and remote isolation is expressed through `SandboxBackend`. Telegram, Hermes, Pi, and Gondolin are reference adapters rather than core dependencies.
+
+## Runtime intervention boundary
+
+The original work order remains immutable. Runtime progress is observational, task annotations are side-effect-free notes, and execution steering is an explicit append-only intervention bound to the current `task_id + execution_id`. Transport syntax and authorization policy live behind adapters/extensions. Recovery and partial-result publication are also policy extensions rather than hard-coded coordinator behavior.
