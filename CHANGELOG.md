@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.1 - 2026-09-27
+
+Backward-compatible runtime-extension release. The stable coordination protocol remains `0.1.0`; no durable event is added, removed, or renamed.
+
+### Runtime extension contracts
+
+- Added optional `ProgressSink` / `ProgressSnapshot` contracts with heartbeat and transport-neutral projection-surface observability.
+- Added current-execution `WorkerControl` and `SteeringPolicy` contracts for explicit append-only human/operator steering without creating a new task or attempt.
+- Added side-effect-free `TaskAnnotationStore` so audit/review notes are distinct from worker steering.
+- Added structured `ReviewFinding` and pluggable `RecoveryPolicy` contracts.
+- Added `ResultPublisher` with frozen payload fingerprints, `unknown` delivery state, and inspect-before-retry semantics for external publication.
+
+### Reference policy
+
+- Added `@agent-coordinator/recovery-bounded-final-repair`, a replaceable recovery policy that permits one scope-locked final repair only for bounded structured blocking findings at the normal retry limit.
+
+### Compatibility and security
+
+- Extension API advanced to `0.1.1`; existing 0.1.x extension manifests remain compatible.
+- Progress data is explicitly operational/redacted, steering must bind to the current task/execution, annotations cannot cause worker side effects, and uncertain publications must be reconciled before retry.
+
 ## 0.1.0 - 2026-09-25
 
 First tagged public release.

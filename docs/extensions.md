@@ -1,6 +1,6 @@
 # Extension API 0.1
 
-`EXTENSION_API_VERSION` is **0.1.0**. Extensions are in-process modules selected and imported by the embedding application; Agent Coordinator does not download or execute remote extension code.
+`EXTENSION_API_VERSION` is **0.1.1**. Extensions are in-process modules selected and imported by the embedding application; Agent Coordinator does not download or execute remote extension code.
 
 ## Manifest
 
@@ -28,6 +28,14 @@ Built-in extension points are:
 - `agent.process-manager` — `WorkerProcessManager`
 - `agent.health-sink` — `SupervisorHealthSink`
 - `agent.event-ledger` — `EventLedger`
+- `agent.progress-sink` — `ProgressSink`
+- `agent.worker-control` — `WorkerControl`
+- `agent.steering-policy` — `SteeringPolicy`
+- `agent.annotation-store` — `TaskAnnotationStore`
+- `agent.recovery-policy` — `RecoveryPolicy`
+- `agent.result-publisher` — `ResultPublisher`
+
+The 0.1.1 runtime points are optional and do not change the stable 0.1 task/delivery wire protocol. See `docs/runtime-extensions.md`.
 
 Hosts can define additional typed points with `defineExtensionPoint()`.
 

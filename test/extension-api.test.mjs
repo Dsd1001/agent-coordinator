@@ -24,7 +24,7 @@ function manifest(overrides = {}) {
 }
 
 test("extension manifest accepts compatible 0.1 patch lines and rejects incompatible minor lines", () => {
-  assert.equal(EXTENSION_API_VERSION, "0.1.0");
+  assert.equal(EXTENSION_API_VERSION, "0.1.1");
   assert.equal(PROTOCOL_VERSION, "0.1.0");
   assert.doesNotThrow(() => validateExtensionManifest(manifest()));
   assert.throws(() => validateExtensionManifest(manifest({ api_version: "0.2.0" })), /incompatible extension API/);
@@ -41,7 +41,7 @@ test("registry atomically installs and resolves typed providers", async () => {
   const installed = await registry.install({
     manifest: manifest(),
     register(registrar, context) {
-      assert.equal(context.extension_api_version, "0.1.0");
+      assert.equal(context.extension_api_version, "0.1.1");
       assert.equal(context.protocol_version, "0.1.0");
       registrar.provide(COORDINATION_TRANSPORT_POINT, "fake", transport);
     }
